@@ -8,6 +8,52 @@ interface PakistanMapProps {
   selectedIndicator: string;
   selectedBoundary: "districts" | "tehsils";
   selectedProvince?: number;
+}
+
+export default function PakistanMap({ selectedIndicator, selectedBoundary, selectedProvince }: PakistanMapProps) {
+  const [zoom, setZoom] = useState(5);
+  
+  const { data: mapData, isLoading } = useQuery({
+    queryKey: ['mapData', selectedIndicator, selectedBoundary, selectedProvince],
+    queryFn: async () => {
+      // Simulate API call to IWMI backend
+      return { features: [], type: 'FeatureCollection' };
+    }
+  });
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 1, 10));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 1, 1));
+  const handleResetView = () => setZoom(5);
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
+          <p className="text-gray-600">Loading climate data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 relative bg-gray-100">
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Pakistan Climate Map</h3>
+          <p className="text-gray-600">
+            Displaying {selectedIndicator} data at {selectedBoundary} level
+          </p>
+          <div className="mt-4 bg-white p-4 rounded-lg shadow">
+            <p className="text-sm text-gray-500">Map visualization will be integrated with IWMI CCVI API</p>
+          </div>
+        </div>
+      </div>
+
+interface PakistanMapProps {
+  selectedIndicator: string;
+  selectedBoundary: "districts" | "tehsils";
+  selectedProvince?: number;
   selectedYear: number;
 }
 
