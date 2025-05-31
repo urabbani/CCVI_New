@@ -1,9 +1,19 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Plus, Minus, Home } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
+import { Loader2 } from "lucide-react";
 import { API_ENDPOINTS, buildApiUrl } from "@/lib/climate-data";
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default markers in React-Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 interface PakistanMapProps {
   selectedIndicator: string;
@@ -13,6 +23,18 @@ interface PakistanMapProps {
   selectedAreaClassification: string;
 }
 
+function MapUpdater({ bounds }: { bounds: L.LatLngBounds | null }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [20, 20] });
+    }
+  }, [bounds, map]);
+  
+  return null;
+}
+
 export default function PakistanMap({ 
   selectedIndicator, 
   selectedBoundary, 
@@ -20,7 +42,7 @@ export default function PakistanMap({
   selectedYear,
   selectedAreaClassification
 }: PakistanMapProps) {
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null);
 
   // Fetch administrative boundaries for map visualization
   const { data: administrativeBoundaries, isLoading: boundariesLoading } = useQuery({
@@ -80,13 +102,9 @@ export default function PakistanMap({
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.2, 3));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.2, 0.5));
-  const handleResetView = () => setZoomLevel(1);
-
-  // Create visualization data for Pakistan regions
-  const createVisualizationData = (data: any, boundaries: any) => {
-    if (!data) return [];
+  // Create GeoJSON data for Pakistan regions
+  const createGeoJSONData = (data: any, boundaries: any) => {
+    if (!data || !boundaries) return null;
     
     // Handle different response structures from IWMI API
     let dataArray = [];
@@ -108,11 +126,11 @@ export default function PakistanMap({
       }));
     } else {
       console.warn('Unexpected data structure:', data);
-      return [];
+      return null;
     }
     
-    // Merge with administrative boundaries if available
-    const mergedData = dataArray.map((item: any, index: number) => {
+    // Create GeoJSON features
+    const features = dataArray.map((item: any, index: number) => {
       const boundary = boundaries?.find((b: any) => 
         b.name === item.name || 
         b.district_name === item.name || 
@@ -120,21 +138,27 @@ export default function PakistanMap({
         b.area_name === item.name
       );
       
+      const value = getIndicatorValue(item, selectedIndicator);
+      
       return {
-        id: item.id || item.district_id || item.tehsil_id || index,
-        name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
-        value: getIndicatorValue(item, selectedIndicator),
-        province: item.province_name || item.province || 'Unknown',
-        coordinates: boundary?.coordinates || null,
-        geometry: boundary?.geometry || null,
-        x: boundary?.centroid_x || (200 + (index % 10) * 60),
-        y: boundary?.centroid_y || (200 + Math.floor(index / 10) * 40),
-        width: 50,
-        height: 35
+        type: "Feature",
+        properties: {
+          id: item.id || item.district_id || item.tehsil_id || index,
+          name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
+          value: value,
+          province: item.province_name || item.province || 'Unknown',
+        },
+        geometry: boundary?.geometry ? JSON.parse(boundary.geometry) : {
+          type: "Point",
+          coordinates: [70 + Math.random() * 5, 30 + Math.random() * 5] // Fallback coordinates for Pakistan
+        }
       };
     });
     
-    return mergedData;
+    return {
+      type: "FeatureCollection",
+      features: features
+    };
   };
 
   // Extract the appropriate value based on indicator type
@@ -161,7 +185,7 @@ export default function PakistanMap({
     }
   };
 
-  const visualizationData = createVisualizationData(vulnerabilityData, administrativeBoundaries);
+  const geoJsonData = createGeoJSONData(vulnerabilityData, administrativeBoundaries);
 
   const getColorByValue = (value: number) => {
     if (value < 0.2) return "#f0f9ff";
@@ -171,10 +195,34 @@ export default function PakistanMap({
     return "#0284c7";
   };
 
+  const onEachFeature = (feature: any, layer: L.Layer) => {
+    const popupContent = `
+      <div>
+        <h3 class="font-semibold">${feature.properties.name}</h3>
+        <p>Province: ${feature.properties.province}</p>
+        <p>${selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1).replace(/-/g, ' ')}: ${feature.properties.value.toFixed(3)}</p>
+      </div>
+    `;
+    layer.bindPopup(popupContent);
+  };
+
+  const style = (feature: any) => {
+    return {
+      fillColor: getColorByValue(feature.properties.value),
+      weight: 1,
+      opacity: 1,
+      color: 'white',
+      fillOpacity: 0.7
+    };
+  };
+
+  // Pakistan center coordinates
+  const pakistanCenter: [number, number] = [30.3753, 69.3451];
+
   return (
     <div className="flex-1 relative">
       {(isLoading || boundariesLoading) && (
-        <div className="absolute top-4 right-4 z-10 bg-white rounded-lg shadow-lg p-3">
+        <div className="absolute top-4 right-4 z-[1000] bg-white rounded-lg shadow-lg p-3">
           <div className="flex items-center space-x-2">
             <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
             <span className="text-sm text-gray-600">
@@ -185,7 +233,7 @@ export default function PakistanMap({
       )}
       
       {error && (
-        <div className="absolute top-4 right-4 z-10 bg-red-50 border border-red-200 rounded-lg shadow-lg p-3">
+        <div className="absolute top-4 right-4 z-[1000] bg-red-50 border border-red-200 rounded-lg shadow-lg p-3">
           <div className="flex items-center space-x-2">
             <div className="w-2 h-2 bg-red-500 rounded-full"></div>
             <span className="text-sm text-red-600">Failed to load {selectedIndicator} data</span>
@@ -193,112 +241,32 @@ export default function PakistanMap({
         </div>
       )}
 
-      {/* Interactive Pakistan map visualization */}
-      <div className="w-full h-full bg-gradient-to-br from-green-50 via-green-100 to-green-200 relative overflow-hidden">
-        {/* Map Background */}
-        <div className="absolute inset-0 opacity-80" style={{ transform: `scale(${zoomLevel})` }}>
-          <svg viewBox="0 0 1000 600" className="w-full h-full">
-            {/* Pakistan Map Outline */}
-            <path 
-              d="M300 120 Q400 100 500 110 Q600 105 700 120 Q750 130 780 160 L800 200 Q790 250 770 300 Q760 350 740 380 L720 420 Q680 450 630 440 Q580 450 530 440 Q480 450 430 440 Q380 450 330 440 L280 420 Q260 380 250 350 Q240 300 250 250 Q260 200 300 120 Z" 
-              fill="#22c55e" 
-              opacity="0.3" 
-              stroke="#16a34a" 
-              strokeWidth="2"
+      {/* Leaflet Map */}
+      <div className="w-full h-full relative">
+        <MapContainer
+          center={pakistanCenter}
+          zoom={6}
+          className="w-full h-full"
+          zoomControl={true}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          
+          {geoJsonData && (
+            <GeoJSON
+              data={geoJsonData}
+              style={style}
+              onEachFeature={onEachFeature}
             />
-            
-            {/* Administrative boundaries and data visualization */}
-            <g className="administrative-regions">
-              {visualizationData.map((region) => (
-                <g key={region.id}>
-                  {/* If we have actual geometry from the API, render it */}
-                  {region.geometry ? (
-                    <path
-                      d={region.geometry}
-                      fill={getColorByValue(region.value)}
-                      opacity="0.8"
-                      className="hover:opacity-100 cursor-pointer transition-opacity"
-                      stroke="#ffffff"
-                      strokeWidth="1"
-                    />
-                  ) : (
-                    /* Fallback to simple rectangles */
-                    <rect 
-                      x={region.x} 
-                      y={region.y} 
-                      width={region.width} 
-                      height={region.height} 
-                      fill={getColorByValue(region.value)}
-                      opacity="0.8" 
-                      className="hover:opacity-100 cursor-pointer transition-opacity"
-                      stroke="#ffffff"
-                      strokeWidth="1"
-                    />
-                  )}
-                  <text 
-                    x={region.x + region.width/2} 
-                    y={region.y + region.height/2} 
-                    textAnchor="middle" 
-                    dominantBaseline="middle"
-                    className="text-xs fill-gray-700 font-medium"
-                  >
-                    {region.value.toFixed(2)}
-                  </text>
-                  <text 
-                    x={region.x + region.width/2} 
-                    y={region.y + region.height/2 + 12} 
-                    textAnchor="middle" 
-                    dominantBaseline="middle"
-                    className="text-xs fill-gray-600"
-                  >
-                    {region.name}
-                  </text>
-                </g>
-              ))}
-            </g>
-            
-            {/* Province boundaries */}
-            <g className="province-lines" stroke="#16a34a" strokeWidth="2" fill="none" opacity="0.6">
-              <line x1="350" y1="120" x2="350" y2="420"/>
-              <line x1="450" y1="110" x2="450" y2="440"/>
-              <line x1="550" y1="105" x2="550" y2="450"/>
-              <line x1="650" y1="120" x2="650" y2="440"/>
-            </g>
-          </svg>
-        </div>
-
-        {/* Map Controls */}
-        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3">
-          <div className="flex flex-col space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleZoomIn}
-              className="p-2 hover:bg-gray-100"
-            >
-              <Plus className="h-4 w-4 text-gray-600" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleZoomOut}
-              className="p-2 hover:bg-gray-100"
-            >
-              <Minus className="h-4 w-4 text-gray-600" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleResetView}
-              className="p-2 hover:bg-gray-100"
-            >
-              <Home className="h-4 w-4 text-gray-600" />
-            </Button>
-          </div>
-        </div>
+          )}
+          
+          <MapUpdater bounds={mapBounds} />
+        </MapContainer>
 
         {/* Legend */}
-        <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10">
+        <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-[1000]">
           <h4 className="text-sm font-semibold text-gray-700 mb-2">
             {selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1).replace(/-/g, ' ')} Index
           </h4>
@@ -311,12 +279,12 @@ export default function PakistanMap({
             <span>1.0</span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Showing {selectedBoundary} level data {visualizationData.length > 0 ? `(${visualizationData.length} areas)` : ''} - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
+            Showing {selectedBoundary} level data - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
           </p>
         </div>
 
         {/* API Connection Status */}
-        <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-3 z-10">
+        <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-3 z-[1000]">
           <div className="flex items-center space-x-2">
             <div className={`w-2 h-2 rounded-full ${
               error ? 'bg-red-500' : vulnerabilityData ? 'bg-green-500' : 'bg-yellow-500'
