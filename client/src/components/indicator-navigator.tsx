@@ -109,17 +109,25 @@ export default function IndicatorNavigator({
             <div>
               <div 
                 className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
-                onClick={() => toggleCategory("vulnerability")}
               >
-                {expandedCategories.has("vulnerability") ? (
-                  <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
-                )}
+                <div
+                  onClick={() => toggleCategory("vulnerability")}
+                  className="flex items-center"
+                >
+                  {expandedCategories.has("vulnerability") ? (
+                    <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
+                  )}
+                </div>
                 <div 
                   className={`w-3 h-3 mr-2 ${getIndicatorColor("vulnerability")}`}
+                  onClick={() => onIndicatorSelect("vulnerability")}
                 />
-                <span className={`text-xs font-medium ${selectedIndicator === "vulnerability" ? "font-semibold" : ""}`}>
+                <span 
+                  className={`text-xs font-medium ${selectedIndicator === "vulnerability" ? "font-semibold" : ""}`}
+                  onClick={() => onIndicatorSelect("vulnerability")}
+                >
                   Climate Vulnerability
                 </span>
               </div>
