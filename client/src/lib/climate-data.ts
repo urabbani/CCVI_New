@@ -2,124 +2,82 @@ export interface IndicatorCategory {
   id: string;
   name: string;
   description?: string;
-  indicators: string[];
+  indicators?: string[];
   hasSubcategories?: boolean;
 }
 
-export interface ClimateIndicator {
+export interface CCVIIndicator {
   id: string;
   name: string;
   category: string;
   subcategory?: string;
   isActive: boolean;
-  ratingCount: number;
+  endpoint?: string;
 }
 
-export interface USState {
-  code: string;
+export interface Province {
+  id: number;
   name: string;
+  code: string;
   vulnerabilityScore?: number;
 }
 
-export const indicatorCategories: IndicatorCategory[] = [
+export interface District {
+  id: number;
+  name: string;
+  province_id: number;
+  vulnerabilityScore?: number;
+}
+
+export interface Tehsil {
+  id: number;
+  name: string;
+  district_id: number;
+  vulnerabilityScore?: number;
+}
+
+export const ccviIndicatorCategories: IndicatorCategory[] = [
   {
-    id: "overall",
+    id: "vulnerability",
     name: "Overall Climate Vulnerability",
-    description: "Score combining environmental, social, economic, and infrastructure effects on neighborhood-level stability.",
-    indicators: ["overall-vulnerability"],
+    description: "Climate Change Vulnerability Index combining adaptive capacity, sensitivity, and exposure indicators.",
   },
   {
-    id: "community-baseline",
-    name: "Community Baseline",
-    indicators: ["baseline-1", "baseline-2", "baseline-3", "baseline-4"],
-    hasSubcategories: true,
+    id: "adaptive-capacity",
+    name: "Adaptive Capacity",
+    description: "The ability of systems, institutions, humans and other organisms to adjust to potential damage, to take advantage of opportunities, or to respond to consequences.",
   },
   {
-    id: "climate-impacts",
-    name: "Climate Impacts", 
-    indicators: ["impact-1", "impact-2", "impact-3", "impact-4"],
-    hasSubcategories: true,
+    id: "sensitivity",
+    name: "Sensitivity Index", 
+    description: "The degree to which a system is affected, either adversely or beneficially, by climate-related stimuli.",
   },
   {
-    id: "health",
-    name: "Health",
-    indicators: ["health-1", "health-2", "health-3", "health-4"],
-    hasSubcategories: true,
-  },
-  {
-    id: "social-economic",
-    name: "Social & Economic",
-    indicators: ["social-1", "social-2", "social-3", "social-4"],
-    hasSubcategories: true,
-  },
-  {
-    id: "environment",
-    name: "Environment",
-    indicators: ["env-1", "env-2", "env-3", "env-4"],
-    hasSubcategories: true,
-  },
-  {
-    id: "extreme-events",
-    name: "Extreme Events",
-    indicators: ["event-1", "event-2", "event-3", "event-4"],
-    hasSubcategories: true,
-  },
-  {
-    id: "infrastructure",
-    name: "Infrastructure",
-    indicators: ["infra-1", "infra-2", "infra-3", "infra-4", "infra-5", "infra-6"],
+    id: "exposure",
+    name: "Exposure",
+    description: "The presence of people, livelihoods, species or ecosystems, environmental functions, services, and resources that could be adversely affected.",
   },
 ];
 
-export const usStates: USState[] = [
-  { code: "AK", name: "Alaska" },
-  { code: "AL", name: "Alabama" },
-  { code: "AR", name: "Arkansas" },
-  { code: "AZ", name: "Arizona" },
-  { code: "CA", name: "California" },
-  { code: "CO", name: "Colorado" },
-  { code: "CT", name: "Connecticut" },
-  { code: "DE", name: "Delaware" },
-  { code: "FL", name: "Florida" },
-  { code: "GA", name: "Georgia" },
-  { code: "HI", name: "Hawaii" },
-  { code: "IA", name: "Iowa" },
-  { code: "ID", name: "Idaho" },
-  { code: "IL", name: "Illinois" },
-  { code: "IN", name: "Indiana" },
-  { code: "KS", name: "Kansas" },
-  { code: "KY", name: "Kentucky" },
-  { code: "LA", name: "Louisiana" },
-  { code: "MA", name: "Massachusetts" },
-  { code: "MD", name: "Maryland" },
-  { code: "ME", name: "Maine" },
-  { code: "MI", name: "Michigan" },
-  { code: "MN", name: "Minnesota" },
-  { code: "MO", name: "Missouri" },
-  { code: "MS", name: "Mississippi" },
-  { code: "MT", name: "Montana" },
-  { code: "NC", name: "North Carolina" },
-  { code: "ND", name: "North Dakota" },
-  { code: "NE", name: "Nebraska" },
-  { code: "NH", name: "New Hampshire" },
-  { code: "NJ", name: "New Jersey" },
-  { code: "NM", name: "New Mexico" },
-  { code: "NV", name: "Nevada" },
-  { code: "NY", name: "New York" },
-  { code: "OH", name: "Ohio" },
-  { code: "OK", name: "Oklahoma" },
-  { code: "OR", name: "Oregon" },
-  { code: "PA", name: "Pennsylvania" },
-  { code: "RI", name: "Rhode Island" },
-  { code: "SC", name: "South Carolina" },
-  { code: "SD", name: "South Dakota" },
-  { code: "TN", name: "Tennessee" },
-  { code: "TX", name: "Texas" },
-  { code: "UT", name: "Utah" },
-  { code: "VA", name: "Virginia" },
-  { code: "VT", name: "Vermont" },
-  { code: "WA", name: "Washington" },
-  { code: "WI", name: "Wisconsin" },
-  { code: "WV", name: "West Virginia" },
-  { code: "WY", name: "Wyoming" },
+export const pakistanProvinces: Province[] = [
+  { id: 1, name: "Punjab", code: "PB" },
+  { id: 2, name: "Sindh", code: "SD" },
+  { id: 3, name: "Khyber Pakhtunkhwa", code: "KP" },
+  { id: 4, name: "Balochistan", code: "BL" },
+  { id: 5, name: "Gilgit-Baltistan", code: "GB" },
+  { id: 6, name: "Azad Jammu & Kashmir", code: "AK" },
+  { id: 7, name: "Islamabad Capital Territory", code: "IS" },
 ];
+
+// IWMI CCVI API endpoints
+export const API_BASE_URL = "https://pakwmis.iwmi.org/iwmi-ccvi/backend/api";
+
+export const API_ENDPOINTS = {
+  provinces: `${API_BASE_URL}/location/provinces`,
+  districts: `${API_BASE_URL}/location/districts`,
+  tehsils: `${API_BASE_URL}/location/tehsils`,
+  vulnerability: `${API_BASE_URL}/ccvi/vulnerability`,
+  adaptiveCapacity: `${API_BASE_URL}/ccvi/adaptive-capacity`,
+  sensitivity: `${API_BASE_URL}/ccvi/sensitivity-index`,
+  exposure: `${API_BASE_URL}/ccvi/exposure`,
+};

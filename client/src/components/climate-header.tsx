@@ -10,7 +10,7 @@ export default function ClimateHeader() {
             <Menu className="h-5 w-5 text-gray-600" />
           </Button>
           <h1 className="text-xl font-semibold text-gray-900">
-            The U.S. Climate Vulnerability Index
+            Pakistan Climate Vulnerability Index
           </h1>
         </div>
         
@@ -19,14 +19,14 @@ export default function ClimateHeader() {
             <div className="w-8 h-8 climate-green-500 rounded flex items-center justify-center">
               <Building2 className="h-5 w-5 text-white" />
             </div>
-            <span className="text-sm text-gray-600 font-medium">Environmental Protection Agency</span>
+            <span className="text-sm text-gray-600 font-medium">IWMI</span>
           </div>
           
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center">
-              <span className="text-white text-xs font-bold">TA&M</span>
+            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+              <span className="text-white text-xs font-bold">CCVI</span>
             </div>
-            <span className="text-sm text-gray-600 font-medium">TEXAS A&M</span>
+            <span className="text-sm text-gray-600 font-medium">CLIMATE VULNERABILITY</span>
           </div>
           
           <div className="flex items-center space-x-2">
