@@ -359,7 +359,7 @@ export default function IndicatorNavigator({
               <span className="font-medium">Level:</span> {selectedBoundary === "districts" ? "Districts" : "Tehsils"}
             </div>
             <div className="text-xs">
-              <span className="font-medium">Area:</span> {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
+              <span className="font-medium">Area:</span> {selectedAreaClassification === "all" ? "All Areas" : (selectedAreaClassification || "All").charAt(0).toUpperCase() + (selectedAreaClassification || "All").slice(1)}
             </div>
           </div>
           <div className="flex space-x-1 mt-2">

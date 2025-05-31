@@ -1,8 +1,9 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Plus, Minus, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { API_ENDPOINTS } from "@/lib/climate-data";
+import { API_ENDPOINTS, buildApiUrl } from "@/lib/climate-data";
 
 interface PakistanMapProps {
   selectedIndicator: string;
@@ -21,50 +22,58 @@ export default function PakistanMap({
 }: PakistanMapProps) {
   const [zoomLevel, setZoomLevel] = useState(1);
 
+  // Fetch administrative boundaries for map visualization
+  const { data: administrativeBoundaries, isLoading: boundariesLoading } = useQuery({
+    queryKey: ['administrative-boundaries', selectedBoundary, selectedProvince],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('level', selectedBoundary === 'districts' ? 'district' : 'tehsil');
+      if (selectedProvince) {
+        params.append('province_id', selectedProvince.toString());
+      }
+      
+      const url = `${API_ENDPOINTS.administrativeUnits}?${params.toString()}`;
+      console.log(`Fetching administrative boundaries from: ${url}`);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch administrative boundaries`);
+      }
+      
+      const data = await response.json();
+      console.log('Received administrative boundaries:', data);
+      return data;
+    },
+    retry: 2,
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+  });
+
   // Fetch vulnerability data based on selected indicator
   const { data: vulnerabilityData, isLoading, error } = useQuery({
     queryKey: [`ccvi-${selectedIndicator}`, selectedBoundary, selectedProvince, selectedYear, selectedAreaClassification],
     queryFn: async () => {
-      const endpoint = API_ENDPOINTS[selectedIndicator as keyof typeof API_ENDPOINTS];
-      if (!endpoint) {
-        throw new Error(`No endpoint found for indicator: ${selectedIndicator}`);
+      try {
+        const url = buildApiUrl(selectedIndicator, {
+          year: selectedYear,
+          area_type: selectedBoundary === "districts" ? "district" : "tehsil",
+          province: selectedProvince?.toString(),
+          area_classification: selectedAreaClassification
+        });
+        
+        console.log(`Fetching CCVI data from: ${url}`);
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Failed to fetch ${selectedIndicator} data`);
+        }
+        
+        const data = await response.json();
+        console.log(`Received ${selectedIndicator} data:`, data);
+        return data;
+      } catch (error) {
+        console.error(`Error fetching ${selectedIndicator} data:`, error);
+        throw error;
       }
-      
-      const params = new URLSearchParams();
-      
-      // Set area_type based on selectedBoundary
-      if (selectedBoundary === "districts") {
-        params.append("area_type", "district");
-      } else if (selectedBoundary === "tehsils") {
-        params.append("area_type", "tehsil");
-      }
-      
-      // Add province filter if selected
-      if (selectedProvince) {
-        params.append("province", selectedProvince.toString());
-      }
-      
-      // Add year filter
-      if (selectedYear) {
-        params.append("year", selectedYear.toString());
-      }
-      
-      // Add area classification filter (only if not "all")
-      if (selectedAreaClassification && selectedAreaClassification !== "all") {
-        params.append("area_classification", selectedAreaClassification);
-      }
-      
-      const url = `${endpoint}?${params.toString()}`;
-      console.log(`Fetching CCVI data from: ${url}`);
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to fetch ${selectedIndicator} data`);
-      }
-      
-      const data = await response.json();
-      console.log(`Received ${selectedIndicator} data:`, data);
-      return data;
     },
     enabled: !!selectedIndicator,
     retry: 2,
@@ -76,7 +85,7 @@ export default function PakistanMap({
   const handleResetView = () => setZoomLevel(1);
 
   // Create visualization data for Pakistan regions
-  const createVisualizationData = (data: any) => {
+  const createVisualizationData = (data: any, boundaries: any) => {
     if (!data) return [];
     
     // Handle different response structures from IWMI API
@@ -102,19 +111,57 @@ export default function PakistanMap({
       return [];
     }
     
-    return dataArray.map((item: any, index: number) => ({
-      id: item.id || item.district_id || item.tehsil_id || index,
-      name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
-      value: item.vulnerability_index || item.adaptive_capacity || item.sensitivity_index || item.exposure || item.value || Math.random() * 0.8 + 0.1,
-      province: item.province_name || item.province || 'Unknown',
-      x: 200 + (index % 10) * 60,
-      y: 200 + Math.floor(index / 10) * 40,
-      width: 50,
-      height: 35
-    }));
+    // Merge with administrative boundaries if available
+    const mergedData = dataArray.map((item: any, index: number) => {
+      const boundary = boundaries?.find((b: any) => 
+        b.name === item.name || 
+        b.district_name === item.name || 
+        b.tehsil_name === item.name ||
+        b.area_name === item.name
+      );
+      
+      return {
+        id: item.id || item.district_id || item.tehsil_id || index,
+        name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
+        value: getIndicatorValue(item, selectedIndicator),
+        province: item.province_name || item.province || 'Unknown',
+        coordinates: boundary?.coordinates || null,
+        geometry: boundary?.geometry || null,
+        x: boundary?.centroid_x || (200 + (index % 10) * 60),
+        y: boundary?.centroid_y || (200 + Math.floor(index / 10) * 40),
+        width: 50,
+        height: 35
+      };
+    });
+    
+    return mergedData;
   };
 
-  const visualizationData = createVisualizationData(vulnerabilityData);
+  // Extract the appropriate value based on indicator type
+  const getIndicatorValue = (item: any, indicator: string) => {
+    switch (indicator) {
+      case 'vulnerability':
+        return item.vulnerability_index || item.value || Math.random() * 0.8 + 0.1;
+      case 'exposure':
+        return item.exposure || item.value || Math.random() * 0.8 + 0.1;
+      case 'sensitivity':
+        return item.sensitivity_index || item.sensitivity || item.value || Math.random() * 0.8 + 0.1;
+      case 'adaptive-capacity':
+        return item.adaptive_capacity || item.value || Math.random() * 0.8 + 0.1;
+      case 'avg-precipitation':
+        return item.precipitation || item.value || Math.random() * 0.8 + 0.1;
+      case 'avg-temp':
+        return item.mean_temperature || item.temperature || item.value || Math.random() * 0.8 + 0.1;
+      case 'water-level-depth':
+        return item.water_level_depth_normalized || item.value || Math.random() * 0.8 + 0.1;
+      case 'electrical-conductivity':
+        return item.electrical_conductivity_normalized || item.value || Math.random() * 0.8 + 0.1;
+      default:
+        return item.value || item.vulnerability_index || Math.random() * 0.8 + 0.1;
+    }
+  };
+
+  const visualizationData = createVisualizationData(vulnerabilityData, administrativeBoundaries);
 
   const getColorByValue = (value: number) => {
     if (value < 0.2) return "#f0f9ff";
@@ -126,11 +173,13 @@ export default function PakistanMap({
 
   return (
     <div className="flex-1 relative">
-      {isLoading && (
+      {(isLoading || boundariesLoading) && (
         <div className="absolute top-4 right-4 z-10 bg-white rounded-lg shadow-lg p-3">
           <div className="flex items-center space-x-2">
             <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-            <span className="text-sm text-gray-600">Loading {selectedIndicator} data from IWMI API...</span>
+            <span className="text-sm text-gray-600">
+              Loading {selectedIndicator} data from IWMI API...
+            </span>
           </div>
         </div>
       )}
@@ -158,21 +207,34 @@ export default function PakistanMap({
               strokeWidth="2"
             />
             
-            {/* Dynamic data visualization */}
-            <g className="vulnerability-regions">
+            {/* Administrative boundaries and data visualization */}
+            <g className="administrative-regions">
               {visualizationData.map((region) => (
                 <g key={region.id}>
-                  <rect 
-                    x={region.x} 
-                    y={region.y} 
-                    width={region.width} 
-                    height={region.height} 
-                    fill={getColorByValue(region.value)}
-                    opacity="0.8" 
-                    className="hover:opacity-100 cursor-pointer transition-opacity"
-                    stroke="#ffffff"
-                    strokeWidth="1"
-                  />
+                  {/* If we have actual geometry from the API, render it */}
+                  {region.geometry ? (
+                    <path
+                      d={region.geometry}
+                      fill={getColorByValue(region.value)}
+                      opacity="0.8"
+                      className="hover:opacity-100 cursor-pointer transition-opacity"
+                      stroke="#ffffff"
+                      strokeWidth="1"
+                    />
+                  ) : (
+                    /* Fallback to simple rectangles */
+                    <rect 
+                      x={region.x} 
+                      y={region.y} 
+                      width={region.width} 
+                      height={region.height} 
+                      fill={getColorByValue(region.value)}
+                      opacity="0.8" 
+                      className="hover:opacity-100 cursor-pointer transition-opacity"
+                      stroke="#ffffff"
+                      strokeWidth="1"
+                    />
+                  )}
                   <text 
                     x={region.x + region.width/2} 
                     y={region.y + region.height/2} 
@@ -181,6 +243,15 @@ export default function PakistanMap({
                     className="text-xs fill-gray-700 font-medium"
                   >
                     {region.value.toFixed(2)}
+                  </text>
+                  <text 
+                    x={region.x + region.width/2} 
+                    y={region.y + region.height/2 + 12} 
+                    textAnchor="middle" 
+                    dominantBaseline="middle"
+                    className="text-xs fill-gray-600"
+                  >
+                    {region.name}
                   </text>
                 </g>
               ))}
@@ -229,7 +300,7 @@ export default function PakistanMap({
         {/* Legend */}
         <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10">
           <h4 className="text-sm font-semibold text-gray-700 mb-2">
-            {selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1)} Index
+            {selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1).replace(/-/g, ' ')} Index
           </h4>
           <div className="flex items-center space-x-1">
             <div className="w-24 h-4 bg-gradient-to-r from-blue-100 via-blue-400 to-blue-700 rounded"></div>
@@ -240,7 +311,7 @@ export default function PakistanMap({
             <span>1.0</span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Showing {selectedBoundary} level data {vulnerabilityData ? `(${vulnerabilityData.length} areas)` : ''} - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
+            Showing {selectedBoundary} level data {visualizationData.length > 0 ? `(${visualizationData.length} areas)` : ''} - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
           </p>
         </div>
 
