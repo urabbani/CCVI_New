@@ -1,8 +1,10 @@
-import { useState } from "react";
+
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Plus, Minus, Home } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import Map, { Source, Layer, NavigationControl } from 'react-map-gl';
 import { API_ENDPOINTS } from "@/lib/climate-data";
+import type { MapboxGeoJSONFeature } from 'mapbox-gl';
 
 interface PakistanMapProps {
   selectedIndicator: string;
@@ -19,7 +21,13 @@ export default function PakistanMap({
   selectedYear,
   selectedAreaClassification
 }: PakistanMapProps) {
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [viewState, setViewState] = useState({
+    longitude: 69.3451,
+    latitude: 30.3753,
+    zoom: 5.5,
+    bearing: 0,
+    pitch: 0
+  });
 
   // Fetch CCVI data based on selected indicator
   const { data: ccviData, isLoading, error } = useQuery({
@@ -52,17 +60,6 @@ export default function PakistanMap({
         });
       }
 
-      // Add geographical filters for non-CCVI endpoints
-      if (!['vulnerability', 'adaptive-capacity', 'sensitivity', 'exposure'].includes(selectedIndicator)) {
-        // For detailed indicators, we may need to specify province/district/tehsil
-        // This can be customized based on selected geographical area
-        if (selectedBoundary === "districts") {
-          // Add province filter if needed
-        } else {
-          // Add district filter if needed
-        }
-      }
-
       const url = `${endpoint}?${params}`;
       console.log(`Fetching ${selectedIndicator} data from: ${url}`);
 
@@ -80,57 +77,144 @@ export default function PakistanMap({
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.2, 3));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.2, 0.5));
-  const handleResetView = () => setZoomLevel(1);
+  // Create GeoJSON data for visualization
+  const geoJsonData = useMemo(() => {
+    if (!ccviData) return null;
 
-  // Create visualization data for Pakistan regions
-  const createVisualizationData = (data: any) => {
-    if (!data) return [];
+    const features: any[] = [];
+    let dataArray = [];
 
     // Handle different response structures from IWMI API
-    let dataArray = [];
-    if (Array.isArray(data)) {
-      dataArray = data;
-    } else if (data.data && Array.isArray(data.data)) {
-      dataArray = data.data;
-    } else if (data.results && Array.isArray(data.results)) {
-      dataArray = data.results;
-    } else if (data.tehsil_vulnerability) {
+    if (Array.isArray(ccviData)) {
+      dataArray = ccviData;
+    } else if (ccviData.data && Array.isArray(ccviData.data)) {
+      dataArray = ccviData.data;
+    } else if (ccviData.results && Array.isArray(ccviData.results)) {
+      dataArray = ccviData.results;
+    } else if (ccviData.tehsil_vulnerability) {
       // Handle vulnerability endpoint structure
-      dataArray = Object.entries(data.tehsil_vulnerability).map(([tehsilName, tehsilData]: [string, any]) => ({
+      dataArray = Object.entries(ccviData.tehsil_vulnerability).map(([tehsilName, tehsilData]: [string, any]) => ({
         name: tehsilName,
-        district: data.district,
+        district: ccviData.district,
         vulnerability_index: tehsilData["Vulnerability Index"],
         exposure: tehsilData.Exposure,
         sensitivity: tehsilData.Sensitivity,
         adaptive_capacity: tehsilData["Adaptive Capacity"]
       }));
     } else {
-      console.warn('Unexpected data structure:', data);
-      return [];
+      console.warn('Unexpected data structure:', ccviData);
+      return null;
     }
 
-    return dataArray.map((item: any, index: number) => ({
-      id: item.id || item.district_id || item.tehsil_id || index,
-      name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
-      value: item.vulnerability_index || item.adaptive_capacity || item.sensitivity_index || item.exposure || item.value || Math.random() * 0.8 + 0.1,
-      province: item.province_name || item.province || 'Unknown',
-      x: 200 + (index % 10) * 60,
-      y: 200 + Math.floor(index / 10) * 40,
-      width: 50,
-      height: 35
-    }));
+    // Create mock GeoJSON features for demonstration
+    // In a real implementation, you would have actual geographical boundaries
+    dataArray.forEach((item: any, index: number) => {
+      const value = item.vulnerability_index || item.adaptive_capacity || item.sensitivity_index || item.exposure || item.value || Math.random() * 0.8 + 0.1;
+      
+      // Create mock coordinates around Pakistan
+      const baseLng = 69.3451 + (Math.random() - 0.5) * 20;
+      const baseLat = 30.3753 + (Math.random() - 0.5) * 15;
+      
+      features.push({
+        type: "Feature",
+        properties: {
+          id: item.id || item.district_id || item.tehsil_id || index,
+          name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
+          value: value,
+          province: item.province_name || item.province || 'Unknown',
+          indicator: selectedIndicator
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [baseLng, baseLat]
+        }
+      });
+    });
+
+    return {
+      type: "FeatureCollection",
+      features: features
+    };
+  }, [ccviData, selectedIndicator]);
+
+  // Create heat map layer style
+  const heatmapLayer = {
+    id: 'climate-heatmap',
+    type: 'heatmap' as const,
+    source: 'climate-data',
+    maxzoom: 15,
+    paint: {
+      'heatmap-weight': [
+        'interpolate',
+        ['linear'],
+        ['get', 'value'],
+        0, 0,
+        1, 1
+      ],
+      'heatmap-intensity': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        0, 1,
+        15, 3
+      ],
+      'heatmap-color': [
+        'interpolate',
+        ['linear'],
+        ['heatmap-density'],
+        0, 'rgba(33,102,172,0)',
+        0.2, 'rgb(103,169,207)',
+        0.4, 'rgb(209,229,240)',
+        0.6, 'rgb(253,219,199)',
+        0.8, 'rgb(239,138,98)',
+        1, 'rgb(178,24,43)'
+      ],
+      'heatmap-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        0, 2,
+        15, 20
+      ],
+      'heatmap-opacity': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        7, 1,
+        15, 0
+      ]
+    }
   };
 
-  const visualizationData = createVisualizationData(ccviData);
-
-  const getColorByValue = (value: number) => {
-    if (value < 0.2) return "#f0f9ff";
-    if (value < 0.4) return "#bae6fd";
-    if (value < 0.6) return "#7dd3fc";
-    if (value < 0.8) return "#38bdf8";
-    return "#0284c7";
+  // Create circle layer for detailed view
+  const circleLayer = {
+    id: 'climate-circles',
+    type: 'circle' as const,
+    source: 'climate-data',
+    minzoom: 7,
+    paint: {
+      'circle-color': [
+        'interpolate',
+        ['linear'],
+        ['get', 'value'],
+        0, '#f0f9ff',
+        0.2, '#bae6fd',
+        0.4, '#7dd3fc',
+        0.6, '#38bdf8',
+        0.8, '#0284c7',
+        1, '#0c4a6e'
+      ],
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        7, 10,
+        15, 30
+      ],
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-opacity': 0.8
+    }
   };
 
   if (isLoading) {
@@ -160,92 +244,25 @@ export default function PakistanMap({
 
   return (
     <div className="flex-1 relative">
-      
-
-      {/* Interactive Pakistan map visualization */}
-      <div className="w-full h-full bg-gradient-to-br from-green-50 via-green-100 to-green-200 relative overflow-hidden">
-        {/* Map Background */}
-        <div className="absolute inset-0 opacity-80" style={{ transform: `scale(${zoomLevel})` }}>
-          <svg viewBox="0 0 1000 600" className="w-full h-full">
-            {/* Pakistan Map Outline */}
-            <path 
-              d="M300 120 Q400 100 500 110 Q600 105 700 120 Q750 130 780 160 L800 200 Q790 250 770 300 Q760 350 740 380 L720 420 Q680 450 630 440 Q580 450 530 440 Q480 450 430 440 Q380 450 330 440 L280 420 Q260 380 250 350 Q240 300 250 250 Q260 200 300 120 Z" 
-              fill="#22c55e" 
-              opacity="0.3" 
-              stroke="#16a34a" 
-              strokeWidth="2"
-            />
-
-            {/* Dynamic data visualization */}
-            <g className="vulnerability-regions">
-              {visualizationData.map((region) => (
-                <g key={region.id}>
-                  <rect 
-                    x={region.x} 
-                    y={region.y} 
-                    width={region.width} 
-                    height={region.height} 
-                    fill={getColorByValue(region.value)}
-                    opacity="0.8" 
-                    className="hover:opacity-100 cursor-pointer transition-opacity"
-                    stroke="#ffffff"
-                    strokeWidth="1"
-                  />
-                  <text 
-                    x={region.x + region.width/2} 
-                    y={region.y + region.height/2} 
-                    textAnchor="middle" 
-                    dominantBaseline="middle"
-                    className="text-xs fill-gray-700 font-medium"
-                  >
-                    {region.value.toFixed(2)}
-                  </text>
-                </g>
-              ))}
-            </g>
-
-            {/* Province boundaries */}
-            <g className="province-lines" stroke="#16a34a" strokeWidth="2" fill="none" opacity="0.6">
-              <line x1="350" y1="120" x2="350" y2="420"/>
-              <line x1="450" y1="110" x2="450" y2="440"/>
-              <line x1="550" y1="105" x2="550" y2="450"/>
-              <line x1="650" y1="120" x2="650" y2="440"/>
-            </g>
-          </svg>
-        </div>
-
-        {/* Map Controls */}
-        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3">
-          <div className="flex flex-col space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleZoomIn}
-              className="p-2 hover:bg-gray-100"
-            >
-              <Plus className="h-4 w-4 text-gray-600" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleZoomOut}
-              className="p-2 hover:bg-gray-100"
-            >
-              <Minus className="h-4 w-4 text-gray-600" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleResetView}
-              className="p-2 hover:bg-gray-100"
-            >
-              <Home className="h-4 w-4 text-gray-600" />
-            </Button>
-          </div>
-        </div>
+      <Map
+        {...viewState}
+        onMove={evt => setViewState(evt.viewState)}
+        style={{ width: '100%', height: '100%' }}
+        mapStyle="mapbox://styles/mapbox/light-v11"
+        mapboxAccessToken="pk.eyJ1IjoiY2xpbWF0ZW1hcCIsImEiOiJjbHkwZnJxdGYwbGZyMmpzNWxvbW4yOGprIn0.example" // You'll need to replace this with your actual token
+        attributionControl={false}
+      >
+        <NavigationControl position="top-right" />
+        
+        {geoJsonData && (
+          <Source id="climate-data" type="geojson" data={geoJsonData}>
+            <Layer {...heatmapLayer} />
+            <Layer {...circleLayer} />
+          </Source>
+        )}
 
         {/* Legend */}
-        <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10">
+        <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10 max-w-xs">
           <h4 className="text-sm font-semibold text-gray-700 mb-2">
             {selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1)} Index
           </h4>
@@ -258,7 +275,7 @@ export default function PakistanMap({
             <span>1.0</span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Showing {selectedBoundary} level data {ccviData ? `(${ccviData.length} areas)` : ''} - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
+            Showing {selectedBoundary} level data {geoJsonData ? `(${geoJsonData.features.length} areas)` : ''} - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
           </p>
         </div>
 
@@ -273,7 +290,7 @@ export default function PakistanMap({
             </span>
           </div>
         </div>
-      </div>
+      </Map>
     </div>
   );
 }
@@ -287,27 +304,5 @@ const INDICATOR_PARAMS: { [key: string]: { [key: string]: string } } = {
   "some-other-indicator": {
     "param1": "value1",
     "param2": "value2"
-  }
-};
-
-// Mocked indicator categories
-const ccviIndicatorCategories = [
-  { id: "vulnerability", name: "Vulnerability Index" },
-  { id: "adaptive-capacity", name: "Adaptive Capacity" },
-  { id: "sensitivity", name: "Sensitivity Index" },
-  { id: "exposure", name: "Exposure Index" },
-];
-
-// Helper function to format indicator data for display
-const formatIndicatorData = (data: any, selectedIndicator: string) => {
-  try {
-    if (!data) return "No data available.";
-
-    // Format JSON data with indentation
-    const formattedJson = JSON.stringify(data, null, 2);
-    return formattedJson;
-  } catch (e: any) {
-    console.error("Error formatting indicator data:", e);
-    return "Error displaying data.";
   }
 };
