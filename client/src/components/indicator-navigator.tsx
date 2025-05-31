@@ -359,7 +359,7 @@ export default function IndicatorNavigator({
               <span className="font-medium">Level:</span> {selectedBoundary === "districts" ? "Districts" : "Tehsils"}
             </div>
             <div className="text-xs">
-              <span className="font-medium">Area:</span> {selectedAreaClassification === "all" ? "All Areas" : (selectedAreaClassification || "All").charAt(0).toUpperCase() + (selectedAreaClassification || "All").slice(1)}
+              <span className="font-medium">Area:</span> {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification ? selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1) : "All"}
             </div>
           </div>
           <div className="flex space-x-1 mt-2">
@@ -380,7 +380,7 @@ export default function IndicatorNavigator({
               Tehsils
             </Button>
           </div>
-          
+
           {/* Area Classification Selector */}
           <div className="mt-3">
             <label className="text-xs font-medium text-gray-700 mb-1 block">

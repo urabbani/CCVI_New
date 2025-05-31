@@ -60,7 +60,7 @@ export default function ClimateDashboard() {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <ClimateHeader />
-      
+
       <div className="flex flex-1">
         <IndicatorNavigator
           selectedIndicator={selectedIndicator}
@@ -72,7 +72,7 @@ export default function ClimateDashboard() {
           selectedAreaClassification={selectedAreaClassification}
           onAreaClassificationChange={handleAreaClassificationChange}
         />
-        
+
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Content Header */}
