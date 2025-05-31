@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import ClimateHeader from "@/components/climate-header";
@@ -80,8 +80,8 @@ export default function ClimateDashboard() {
 
   const handleGenerateReport = () => {
     toast({
-      title: "Business Report Generation",
-      description: `Generating professional business proposal for Pakistan ${selectedIndicator} analysis. This would include climate vulnerability assessments, risk management strategies, and investment recommendations for retail operations across ${selectedBoundary}.`,
+      title: "Report Generation",
+      description: `Generating professional report for Pakistan ${selectedIndicator} analysis. This would include climate vulnerability assessments, risk management strategies, and investment recommendations for retail operations across ${selectedBoundary}.`,
       duration: 5000,
     });
   };
@@ -132,7 +132,7 @@ export default function ClimateDashboard() {
                   className="flex items-center space-x-2 climate-green-500 hover:climate-green-600 text-white"
                 >
                   <FileText className="h-4 w-4" />
-                  <span>Generate Business Report</span>
+                  <span>Generate Report</span>
                 </Button>
               </div>
             </div>
@@ -142,6 +142,7 @@ export default function ClimateDashboard() {
             selectedIndicator={selectedIndicator}
             selectedBoundary={selectedBoundary}
             selectedProvince={selectedProvince}
+            selectedYear={selectedYear}
           />
         </div>
       </div>
