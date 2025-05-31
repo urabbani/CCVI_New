@@ -8,52 +8,6 @@ interface PakistanMapProps {
   selectedIndicator: string;
   selectedBoundary: "districts" | "tehsils";
   selectedProvince?: number;
-}
-
-export default function PakistanMap({ selectedIndicator, selectedBoundary, selectedProvince }: PakistanMapProps) {
-  const [zoom, setZoom] = useState(5);
-  
-  const { data: mapData, isLoading } = useQuery({
-    queryKey: ['mapData', selectedIndicator, selectedBoundary, selectedProvince],
-    queryFn: async () => {
-      // Simulate API call to IWMI backend
-      return { features: [], type: 'FeatureCollection' };
-    }
-  });
-
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 1, 10));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 1, 1));
-  const handleResetView = () => setZoom(5);
-
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
-          <p className="text-gray-600">Loading climate data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 relative bg-gray-100">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">Pakistan Climate Map</h3>
-          <p className="text-gray-600">
-            Displaying {selectedIndicator} data at {selectedBoundary} level
-          </p>
-          <div className="mt-4 bg-white p-4 rounded-lg shadow">
-            <p className="text-sm text-gray-500">Map visualization will be integrated with IWMI CCVI API</p>
-          </div>
-        </div>
-      </div>
-
-interface PakistanMapProps {
-  selectedIndicator: string;
-  selectedBoundary: "districts" | "tehsils";
-  selectedProvince?: number;
   selectedYear: number;
 }
 
@@ -65,33 +19,30 @@ export default function PakistanMap({
 }: PakistanMapProps) {
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  // Fetch vulnerability data based on selected indicator
-  const { data: vulnerabilityData, isLoading } = useQuery({
-    queryKey: [`/api/ccvi/${selectedIndicator}`, selectedBoundary, selectedProvince, selectedYear],
+  // Fetch vulnerability data from IWMI API
+  const { data: vulnerabilityData, isLoading: dataLoading } = useQuery({
+    queryKey: ['vulnerability-data', selectedIndicator, selectedBoundary],
     queryFn: async () => {
-      const endpoint = API_ENDPOINTS[selectedIndicator as keyof typeof API_ENDPOINTS];
-      if (!endpoint) return null;
-      
-      const params = new URLSearchParams();
-      if (selectedBoundary === "districts") {
-        params.append("area_type", "district");
-      } else {
-        params.append("area_type", "tehsil");
-      }
-      if (selectedProvince) {
-        params.append("province_id", selectedProvince.toString());
-      }
-      if (selectedYear) {
-        params.append("year", selectedYear.toString());
-      }
-      
-      const response = await fetch(`${endpoint}?${params}`);
+      const params = new URLSearchParams({
+        indicator: selectedIndicator,
+        boundary: selectedBoundary,
+        ...(selectedProvince && { province_id: selectedProvince.toString() })
+      });
+
+      const response = await fetch(`${API_ENDPOINTS.vulnerabilityData}?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
       if (!response.ok) {
-        throw new Error(`Failed to fetch ${selectedIndicator} data`);
+        throw new Error(`Failed to fetch vulnerability data: ${response.status}`);
       }
       return response.json();
     },
-    enabled: !!selectedIndicator,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.2, 3));
@@ -101,7 +52,7 @@ export default function PakistanMap({
   // Create visualization data for Pakistan regions
   const createVisualizationData = (data: any[]) => {
     if (!data || !Array.isArray(data)) return [];
-    
+
     return data.map((item: any, index: number) => ({
       id: item.id || index,
       name: item.name || item.district_name || item.tehsil_name || `Area ${index + 1}`,
@@ -148,7 +99,7 @@ export default function PakistanMap({
               stroke="#16a34a" 
               strokeWidth="2"
             />
-            
+
             {/* Dynamic data visualization */}
             <g className="vulnerability-regions">
               {visualizationData.map((region) => (
@@ -176,7 +127,7 @@ export default function PakistanMap({
                 </g>
               ))}
             </g>
-            
+
             {/* Province boundaries */}
             <g className="province-lines" stroke="#16a34a" strokeWidth="2" fill="none" opacity="0.6">
               <line x1="350" y1="120" x2="350" y2="420"/>

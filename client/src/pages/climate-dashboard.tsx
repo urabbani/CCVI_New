@@ -40,8 +40,8 @@ export default function ClimateDashboard() {
 
   const handleGenerateReport = () => {
     toast({
-      title: "Business Report Generation",
-      description: `Generating professional business proposal for Pakistan ${selectedIndicator} analysis. This would include climate vulnerability assessments, risk management strategies, and investment recommendations for retail operations across ${selectedBoundary}.`,
+      title: "Report Generation",
+      description: `Generating comprehensive report for Pakistan ${selectedIndicator} analysis. This includes climate vulnerability assessments and detailed analysis across ${selectedBoundary}.`,
       duration: 5000,
     });
   };
