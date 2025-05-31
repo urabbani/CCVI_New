@@ -105,131 +105,25 @@ export default function IndicatorNavigator({
           </h3>
 
           <div className="space-y-1">
-            {/* Overall Climate Vulnerability - Always Expanded */}
+            {/* Climate Vulnerability - Parent with three children */}
             <div>
               <div 
                 className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
-                onClick={() => onIndicatorSelect("vulnerability")}
+                onClick={() => toggleCategory("vulnerability")}
               >
-                <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
+                {expandedCategories.has("vulnerability") ? (
+                  <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
+                ) : (
+                  <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
+                )}
                 <div 
                   className={`w-3 h-3 mr-2 ${getIndicatorColor("vulnerability")}`}
                 />
-                <span className={`text-xs ${selectedIndicator === "vulnerability" ? "font-semibold" : ""}`}>
-                  Overall Climate Vulnerability
+                <span className={`text-xs font-medium ${selectedIndicator === "vulnerability" ? "font-semibold" : ""}`}>
+                  Climate Vulnerability
                 </span>
               </div>
-            </div>
-
-            {/* Community Baseline */}
-            <div>
-              <div 
-                className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
-                onClick={() => toggleCategory("community")}
-              >
-                {expandedCategories.has("community") ? (
-                  <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
-                )}
-                <div className="w-3 h-3 bg-orange-500 mr-2" />
-                <span className="text-xs font-medium">Community Baseline</span>
-              </div>
-              {expandedCategories.has("community") && (
-                <div className="ml-5 space-y-1">
-                  <div 
-                    className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
-                    onClick={() => onIndicatorSelect("adaptive-capacity")}
-                  >
-                    <div 
-                      className={`w-3 h-3 mr-2 ${getIndicatorColor("adaptive-capacity")}`}
-                    />
-                    <span className={`text-xs ${selectedIndicator === "adaptive-capacity" ? "font-semibold" : ""}`}>
-                      Adaptive Capacity
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Health */}
-            <div>
-              <div 
-                className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
-                onClick={() => toggleCategory("health")}
-              >
-                {expandedCategories.has("health") ? (
-                  <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
-                )}
-                <div className="w-3 h-3 bg-blue-400 mr-2" />
-                <span className="text-xs">Health</span>
-              </div>
-              {expandedCategories.has("health") && (
-                <div className="ml-5 space-y-1">
-                  <div 
-                    className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
-                    onClick={() => onIndicatorSelect("sensitivity")}
-                  >
-                    <div 
-                      className={`w-3 h-3 mr-2 ${getIndicatorColor("sensitivity")}`}
-                    />
-                    <span className={`text-xs ${selectedIndicator === "sensitivity" ? "font-semibold" : ""}`}>
-                      Sensitivity Index
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Built Environment */}
-            <div>
-              <div 
-                className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
-                onClick={() => toggleCategory("built-environment")}
-              >
-                {expandedCategories.has("built-environment") ? (
-                  <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
-                )}
-                <div className="w-3 h-3 bg-gray-400 mr-2" />
-                <span className="text-xs">Built Environment</span>
-              </div>
-            </div>
-
-            {/* Socioeconomics */}
-            <div>
-              <div 
-                className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
-                onClick={() => toggleCategory("socioeconomics")}
-              >
-                {expandedCategories.has("socioeconomics") ? (
-                  <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
-                )}
-                <div className="w-3 h-3 bg-gray-400 mr-2" />
-                <span className="text-xs">Socioeconomics</span>
-              </div>
-            </div>
-
-            {/* Extreme Events */}
-            <div>
-              <div 
-                className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
-                onClick={() => toggleCategory("extreme-events")}
-              >
-                {expandedCategories.has("extreme-events") ? (
-                  <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
-                )}
-                <div className="w-3 h-3 bg-gray-400 mr-2" />
-                <span className="text-xs">Extreme Events</span>
-              </div>
-              {expandedCategories.has("extreme-events") && (
+              {expandedCategories.has("vulnerability") && (
                 <div className="ml-5 space-y-1">
                   <div 
                     className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
@@ -240,6 +134,28 @@ export default function IndicatorNavigator({
                     />
                     <span className={`text-xs ${selectedIndicator === "exposure" ? "font-semibold" : ""}`}>
                       Exposure
+                    </span>
+                  </div>
+                  <div 
+                    className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
+                    onClick={() => onIndicatorSelect("sensitivity")}
+                  >
+                    <div 
+                      className={`w-3 h-3 mr-2 ${getIndicatorColor("sensitivity")}`}
+                    />
+                    <span className={`text-xs ${selectedIndicator === "sensitivity" ? "font-semibold" : ""}`}>
+                      Sensitivity
+                    </span>
+                  </div>
+                  <div 
+                    className="flex items-center py-1 cursor-pointer hover:bg-gray-50 rounded"
+                    onClick={() => onIndicatorSelect("adaptive-capacity")}
+                  >
+                    <div 
+                      className={`w-3 h-3 mr-2 ${getIndicatorColor("adaptive-capacity")}`}
+                    />
+                    <span className={`text-xs ${selectedIndicator === "adaptive-capacity" ? "font-semibold" : ""}`}>
+                      Adaptive Capacity
                     </span>
                   </div>
                 </div>
