@@ -69,6 +69,12 @@ export const pakistanProvinces: Province[] = [
   { id: 7, name: "Islamabad Capital Territory", code: "IS" },
 ];
 
+export interface YearOption {
+  id: number;
+  value: string;
+  label: string;
+}
+
 // IWMI CCVI API endpoints
 export const API_BASE_URL = "https://pakwmis.iwmi.org/iwmi-ccvi/backend/api";
 
@@ -76,6 +82,7 @@ export const API_ENDPOINTS = {
   provinces: `${API_BASE_URL}/location/provinces`,
   districts: `${API_BASE_URL}/location/districts`,
   tehsils: `${API_BASE_URL}/location/tehsils`,
+  years: `${API_BASE_URL}/location/years`,
   vulnerability: `${API_BASE_URL}/ccvi/vulnerability`,
   adaptiveCapacity: `${API_BASE_URL}/ccvi/adaptive-capacity`,
   sensitivity: `${API_BASE_URL}/ccvi/sensitivity-index`,

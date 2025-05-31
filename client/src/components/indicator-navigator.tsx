@@ -1,12 +1,17 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ccviIndicatorCategories } from "@/lib/climate-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Calendar } from "lucide-react";
+import { ccviIndicatorCategories, API_ENDPOINTS, YearOption } from "@/lib/climate-data";
 
 interface IndicatorNavigatorProps {
   selectedIndicator: string;
   onIndicatorSelect: (indicatorId: string) => void;
   selectedBoundary: "districts" | "tehsils";
   onBoundaryChange: (boundary: "districts" | "tehsils") => void;
+  selectedYear: number;
+  onYearChange: (year: number) => void;
 }
 
 export default function IndicatorNavigator({
@@ -14,10 +19,57 @@ export default function IndicatorNavigator({
   onIndicatorSelect,
   selectedBoundary,
   onBoundaryChange,
+  selectedYear,
+  onYearChange,
 }: IndicatorNavigatorProps) {
+
+  // Fetch available years from IWMI API
+  const { data: years, isLoading: yearsLoading } = useQuery({
+    queryKey: ['/api/location/years'],
+    queryFn: async () => {
+      const response = await fetch(API_ENDPOINTS.years);
+      if (!response.ok) {
+        throw new Error('Failed to fetch years');
+      }
+      return response.json() as YearOption[];
+    },
+  });
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+      {/* Year Selector Section */}
+      <div className="p-4 border-b border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+          Data Year
+        </h3>
+        {yearsLoading ? (
+          <div className="flex items-center justify-center py-2">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <span className="ml-2 text-sm text-gray-600">Loading years...</span>
+          </div>
+        ) : (
+          <Select 
+            value={selectedYear?.toString() || "2023"} 
+            onValueChange={(value) => onYearChange(parseInt(value))}
+          >
+            <SelectTrigger className="w-full">
+              <div className="flex items-center">
+                <Calendar className="h-4 w-4 mr-2 text-gray-500" />
+                <SelectValue placeholder="Select year" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              {years?.map((year) => (
+                <SelectItem key={year.id} value={year.value}>
+                  {year.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <p className="text-xs text-gray-500 mt-2">Select year for CCVI data analysis</p>
+      </div>
+
       {/* Map Boundaries Section */}
       <div className="p-4 border-b border-gray-200">
         <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">

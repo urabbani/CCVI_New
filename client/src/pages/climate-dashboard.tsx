@@ -11,6 +11,7 @@ export default function ClimateDashboard() {
   const [selectedIndicator, setSelectedIndicator] = useState("vulnerability");
   const [selectedBoundary, setSelectedBoundary] = useState<"districts" | "tehsils">("districts");
   const [selectedProvince, setSelectedProvince] = useState<number>();
+  const [selectedYear, setSelectedYear] = useState(2023);
   const { toast } = useToast();
 
   const handleIndicatorSelect = (indicatorId: string) => {
@@ -26,6 +27,14 @@ export default function ClimateDashboard() {
     toast({
       title: "Boundary Changed",
       description: `Now showing ${boundary} level data`,
+    });
+  };
+
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year);
+    toast({
+      title: "Year Selected",
+      description: `Loading ${year} CCVI data from IWMI backend`,
     });
   };
 
@@ -89,6 +98,8 @@ export default function ClimateDashboard() {
           onIndicatorSelect={handleIndicatorSelect}
           selectedBoundary={selectedBoundary}
           onBoundaryChange={handleBoundaryChange}
+          selectedYear={selectedYear}
+          onYearChange={handleYearChange}
         />
         
         {/* Main Content */}

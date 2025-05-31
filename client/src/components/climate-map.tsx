@@ -8,18 +8,20 @@ interface PakistanMapProps {
   selectedIndicator: string;
   selectedBoundary: "districts" | "tehsils";
   selectedProvince?: number;
+  selectedYear: number;
 }
 
 export default function PakistanMap({ 
   selectedIndicator, 
   selectedBoundary, 
-  selectedProvince 
+  selectedProvince,
+  selectedYear
 }: PakistanMapProps) {
   const [zoomLevel, setZoomLevel] = useState(1);
 
   // Fetch vulnerability data based on selected indicator
   const { data: vulnerabilityData, isLoading } = useQuery({
-    queryKey: [`/api/ccvi/${selectedIndicator}`, selectedBoundary, selectedProvince],
+    queryKey: [`/api/ccvi/${selectedIndicator}`, selectedBoundary, selectedProvince, selectedYear],
     queryFn: async () => {
       const endpoint = API_ENDPOINTS[selectedIndicator as keyof typeof API_ENDPOINTS];
       if (!endpoint) return null;
@@ -32,6 +34,9 @@ export default function PakistanMap({
       }
       if (selectedProvince) {
         params.append("province_id", selectedProvince.toString());
+      }
+      if (selectedYear) {
+        params.append("year", selectedYear.toString());
       }
       
       const response = await fetch(`${endpoint}?${params}`);
