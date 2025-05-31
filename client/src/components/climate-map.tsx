@@ -1,10 +1,14 @@
 
-import { useState, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
-import Map, { Source, Layer, NavigationControl } from 'react-map-gl';
+import { Loader2, Plus, Minus, Home } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { API_ENDPOINTS } from "@/lib/climate-data";
-import type { MapboxGeoJSONFeature } from 'mapbox-gl';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+// Set Mapbox access token
+mapboxgl.accessToken = 'pk.eyJ1IjoibXVtYWlyciIsImEiOiJjbTljbjAyd2EwNW90MmtyN3FpODVqbHI0In0.S4BxDCnbkvlj6ECKBXdWcw';
 
 interface PakistanMapProps {
   selectedIndicator: string;
@@ -21,13 +25,9 @@ export default function PakistanMap({
   selectedYear,
   selectedAreaClassification
 }: PakistanMapProps) {
-  const [viewState, setViewState] = useState({
-    longitude: 69.3451,
-    latitude: 30.3753,
-    zoom: 5.5,
-    bearing: 0,
-    pitch: 0
-  });
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   // Fetch CCVI data based on selected indicator
   const { data: ccviData, isLoading, error } = useQuery({
@@ -77,143 +77,191 @@ export default function PakistanMap({
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  // Create GeoJSON data for visualization
-  const geoJsonData = useMemo(() => {
-    if (!ccviData) return null;
+  // Initialize Mapbox map
+  useEffect(() => {
+    if (map.current || !mapContainer.current) return; // Initialize map only once
 
-    const features: any[] = [];
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: [69.3451, 30.3753], // Center on Pakistan
+      zoom: 5,
+      minZoom: 4,
+      maxZoom: 12
+    });
+
+    map.current.on('load', () => {
+      setMapLoaded(true);
+    });
+
+    // Add navigation controls
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-left');
+
+    return () => {
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
+  }, []);
+
+  // Create visualization data for Pakistan regions
+  const createVisualizationData = (data: any) => {
+    if (!data) return [];
+
     let dataArray = [];
-
-    // Handle different response structures from IWMI API
-    if (Array.isArray(ccviData)) {
-      dataArray = ccviData;
-    } else if (ccviData.data && Array.isArray(ccviData.data)) {
-      dataArray = ccviData.data;
-    } else if (ccviData.results && Array.isArray(ccviData.results)) {
-      dataArray = ccviData.results;
-    } else if (ccviData.tehsil_vulnerability) {
+    if (Array.isArray(data)) {
+      dataArray = data;
+    } else if (data.data && Array.isArray(data.data)) {
+      dataArray = data.data;
+    } else if (data.results && Array.isArray(data.results)) {
+      dataArray = data.results;
+    } else if (data.tehsil_vulnerability) {
       // Handle vulnerability endpoint structure
-      dataArray = Object.entries(ccviData.tehsil_vulnerability).map(([tehsilName, tehsilData]: [string, any]) => ({
+      dataArray = Object.entries(data.tehsil_vulnerability).map(([tehsilName, tehsilData]: [string, any]) => ({
         name: tehsilName,
-        district: ccviData.district,
+        district: data.district,
         vulnerability_index: tehsilData["Vulnerability Index"],
         exposure: tehsilData.Exposure,
         sensitivity: tehsilData.Sensitivity,
         adaptive_capacity: tehsilData["Adaptive Capacity"]
       }));
     } else {
-      console.warn('Unexpected data structure:', ccviData);
-      return null;
+      console.warn('Unexpected data structure:', data);
+      return [];
     }
 
-    // Create mock GeoJSON features for demonstration
-    // In a real implementation, you would have actual geographical boundaries
-    dataArray.forEach((item: any, index: number) => {
-      const value = item.vulnerability_index || item.adaptive_capacity || item.sensitivity_index || item.exposure || item.value || Math.random() * 0.8 + 0.1;
+    return dataArray.map((item: any, index: number) => ({
+      id: item.id || item.district_id || item.tehsil_id || index,
+      name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
+      value: item.vulnerability_index || item.adaptive_capacity || item.sensitivity_index || item.exposure || item.value || Math.random() * 0.8 + 0.1,
+      province: item.province_name || item.province || 'Unknown',
+    }));
+  };
+
+  const visualizationData = createVisualizationData(ccviData);
+
+  // Add data layers to map when data changes
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !visualizationData.length) return;
+
+    // Remove existing data layers
+    if (map.current.getLayer('climate-data-layer')) {
+      map.current.removeLayer('climate-data-layer');
+    }
+    if (map.current.getSource('climate-data')) {
+      map.current.removeSource('climate-data');
+    }
+
+    // Create GeoJSON features for the data points
+    const features = visualizationData.map((item, index) => {
+      // Generate approximate coordinates for Pakistan regions
+      const baseCoords = getPakistanCoordinates(item.name, index);
       
-      // Create mock coordinates around Pakistan
-      const baseLng = 69.3451 + (Math.random() - 0.5) * 20;
-      const baseLat = 30.3753 + (Math.random() - 0.5) * 15;
-      
-      features.push({
-        type: "Feature",
+      return {
+        type: 'Feature',
         properties: {
-          id: item.id || item.district_id || item.tehsil_id || index,
-          name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
-          value: value,
-          province: item.province_name || item.province || 'Unknown',
+          name: item.name,
+          value: item.value,
+          province: item.province,
           indicator: selectedIndicator
         },
         geometry: {
-          type: "Point",
-          coordinates: [baseLng, baseLat]
+          type: 'Point',
+          coordinates: baseCoords
         }
-      });
+      };
     });
 
-    return {
-      type: "FeatureCollection",
+    const geojson = {
+      type: 'FeatureCollection',
       features: features
     };
-  }, [ccviData, selectedIndicator]);
 
-  // Create heat map layer style
-  const heatmapLayer = {
-    id: 'climate-heatmap',
-    type: 'heatmap' as const,
-    source: 'climate-data',
-    maxzoom: 15,
-    paint: {
-      'heatmap-weight': [
-        'interpolate',
-        ['linear'],
-        ['get', 'value'],
-        0, 0,
-        1, 1
-      ],
-      'heatmap-intensity': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        0, 1,
-        15, 3
-      ],
-      'heatmap-color': [
-        'interpolate',
-        ['linear'],
-        ['heatmap-density'],
-        0, 'rgba(33,102,172,0)',
-        0.2, 'rgb(103,169,207)',
-        0.4, 'rgb(209,229,240)',
-        0.6, 'rgb(253,219,199)',
-        0.8, 'rgb(239,138,98)',
-        1, 'rgb(178,24,43)'
-      ],
-      'heatmap-radius': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        0, 2,
-        15, 20
-      ],
-      'heatmap-opacity': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        7, 1,
-        15, 0
-      ]
+    // Add source
+    map.current.addSource('climate-data', {
+      type: 'geojson',
+      data: geojson as any
+    });
+
+    // Add circle layer
+    map.current.addLayer({
+      id: 'climate-data-layer',
+      type: 'circle',
+      source: 'climate-data',
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['get', 'value'],
+          0, 8,
+          1, 25
+        ],
+        'circle-color': [
+          'interpolate',
+          ['linear'],
+          ['get', 'value'],
+          0, '#f0f9ff',
+          0.2, '#bae6fd',
+          0.4, '#7dd3fc',
+          0.6, '#38bdf8',
+          0.8, '#0284c7',
+          1, '#0c4a6e'
+        ],
+        'circle-opacity': 0.8,
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#ffffff'
+      }
+    });
+
+    // Add click events
+    map.current.on('click', 'climate-data-layer', (e) => {
+      if (e.features && e.features[0]) {
+        const feature = e.features[0];
+        const properties = feature.properties;
+        
+        new mapboxgl.Popup()
+          .setLngLat(e.lngLat)
+          .setHTML(`
+            <div class="p-2">
+              <h3 class="font-semibold">${properties?.name}</h3>
+              <p class="text-sm text-gray-600">Province: ${properties?.province}</p>
+              <p class="text-sm"><strong>${selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1)}:</strong> ${properties?.value?.toFixed(3)}</p>
+            </div>
+          `)
+          .addTo(map.current!);
+      }
+    });
+
+    // Change cursor on hover
+    map.current.on('mouseenter', 'climate-data-layer', () => {
+      if (map.current) map.current.getCanvas().style.cursor = 'pointer';
+    });
+
+    map.current.on('mouseleave', 'climate-data-layer', () => {
+      if (map.current) map.current.getCanvas().style.cursor = '';
+    });
+
+  }, [mapLoaded, visualizationData, selectedIndicator]);
+
+  const handleZoomIn = () => {
+    if (map.current) {
+      map.current.zoomIn();
     }
   };
 
-  // Create circle layer for detailed view
-  const circleLayer = {
-    id: 'climate-circles',
-    type: 'circle' as const,
-    source: 'climate-data',
-    minzoom: 7,
-    paint: {
-      'circle-color': [
-        'interpolate',
-        ['linear'],
-        ['get', 'value'],
-        0, '#f0f9ff',
-        0.2, '#bae6fd',
-        0.4, '#7dd3fc',
-        0.6, '#38bdf8',
-        0.8, '#0284c7',
-        1, '#0c4a6e'
-      ],
-      'circle-radius': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        7, 10,
-        15, 30
-      ],
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 2,
-      'circle-opacity': 0.8
+  const handleZoomOut = () => {
+    if (map.current) {
+      map.current.zoomOut();
+    }
+  };
+
+  const handleResetView = () => {
+    if (map.current) {
+      map.current.flyTo({
+        center: [69.3451, 30.3753],
+        zoom: 5
+      });
     }
   };
 
@@ -244,55 +292,112 @@ export default function PakistanMap({
 
   return (
     <div className="flex-1 relative">
-      <Map
-        {...viewState}
-        onMove={evt => setViewState(evt.viewState)}
-        style={{ width: '100%', height: '100%' }}
-        mapStyle="mapbox://styles/mapbox/light-v11"
-        mapboxAccessToken="pk.eyJ1IjoiY2xpbWF0ZW1hcCIsImEiOiJjbHkwZnJxdGYwbGZyMmpzNWxvbW4yOGprIn0.example" // You'll need to replace this with your actual token
-        attributionControl={false}
-      >
-        <NavigationControl position="top-right" />
-        
-        {geoJsonData && (
-          <Source id="climate-data" type="geojson" data={geoJsonData}>
-            <Layer {...heatmapLayer} />
-            <Layer {...circleLayer} />
-          </Source>
-        )}
+      {/* Mapbox container */}
+      <div ref={mapContainer} className="w-full h-full" />
 
-        {/* Legend */}
-        <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10 max-w-xs">
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">
-            {selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1)} Index
-          </h4>
-          <div className="flex items-center space-x-1">
-            <div className="w-24 h-4 bg-gradient-to-r from-blue-100 via-blue-400 to-blue-700 rounded"></div>
-          </div>
-          <div className="flex justify-between w-24 text-xs text-gray-600 mt-1">
-            <span>0.0</span>
-            <span>0.5</span>
-            <span>1.0</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Showing {selectedBoundary} level data {geoJsonData ? `(${geoJsonData.features.length} areas)` : ''} - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
-          </p>
+      {/* Map Controls */}
+      <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 z-10">
+        <div className="flex flex-col space-y-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleZoomIn}
+            className="p-2 hover:bg-gray-100"
+          >
+            <Plus className="h-4 w-4 text-gray-600" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleZoomOut}
+            className="p-2 hover:bg-gray-100"
+          >
+            <Minus className="h-4 w-4 text-gray-600" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetView}
+            className="p-2 hover:bg-gray-100"
+          >
+            <Home className="h-4 w-4 text-gray-600" />
+          </Button>
         </div>
+      </div>
 
-        {/* API Connection Status */}
-        <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-3 z-10">
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${
-              error ? 'bg-red-500' : ccviData ? 'bg-green-500' : 'bg-yellow-500'
-            }`}></div>
-            <span className="text-xs text-gray-600">
-              {error ? 'API Error' : ccviData ? 'Connected to IWMI CCVI API' : 'Connecting to API...'}
-            </span>
-          </div>
+      {/* Legend */}
+      <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10">
+        <h4 className="text-sm font-semibold text-gray-700 mb-2">
+          {selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1)} Index
+        </h4>
+        <div className="flex items-center space-x-1 mb-2">
+          <div className="w-24 h-4 bg-gradient-to-r from-blue-100 via-blue-400 to-blue-900 rounded"></div>
         </div>
-      </Map>
+        <div className="flex justify-between w-24 text-xs text-gray-600 mb-2">
+          <span>0.0</span>
+          <span>0.5</span>
+          <span>1.0</span>
+        </div>
+        <p className="text-xs text-gray-500">
+          Showing {selectedBoundary} level data ({visualizationData.length} areas) - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
+        </p>
+      </div>
+
+      {/* API Connection Status */}
+      <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-3 z-10">
+        <div className="flex items-center space-x-2">
+          <div className={`w-2 h-2 rounded-full ${
+            error ? 'bg-red-500' : ccviData ? 'bg-green-500' : 'bg-yellow-500'
+          }`}></div>
+          <span className="text-xs text-gray-600">
+            {error ? 'API Error' : ccviData ? 'Connected to IWMI CCVI API' : 'Connecting to API...'}
+          </span>
+        </div>
+      </div>
     </div>
   );
+}
+
+// Helper function to generate approximate coordinates for Pakistan regions
+function getPakistanCoordinates(regionName: string, index: number): [number, number] {
+  // Define approximate coordinates for major Pakistan regions
+  const regionCoords: { [key: string]: [number, number] } = {
+    'KHANPUR': [70.6555, 28.6449],
+    'LIAQUATPUR': [71.3419, 29.3736],
+    'RAHIM YAR KHAN': [70.2946, 28.4212],
+    'SADIQABAD': [70.1206, 28.3056],
+    'LAHORE': [74.3587, 31.5204],
+    'KARACHI': [67.0011, 24.8607],
+    'ISLAMABAD': [73.0479, 33.6844],
+    'RAWALPINDI': [73.0479, 33.5651],
+    'FAISALABAD': [73.0823, 31.4075],
+    'MULTAN': [71.5249, 30.1575],
+    'PESHAWAR': [71.5249, 34.0151],
+    'QUETTA': [66.9750, 30.1798],
+  };
+
+  // Check if we have specific coordinates for this region
+  const upperRegionName = regionName.toUpperCase();
+  if (regionCoords[upperRegionName]) {
+    return regionCoords[upperRegionName];
+  }
+
+  // Generate coordinates within Pakistan bounds if not found
+  const pakistanBounds = {
+    minLng: 60.8738,
+    maxLng: 77.8375,
+    minLat: 23.6345,
+    maxLat: 37.0841
+  };
+
+  // Create a somewhat random but consistent position based on the index
+  const lngRange = pakistanBounds.maxLng - pakistanBounds.minLng;
+  const latRange = pakistanBounds.maxLat - pakistanBounds.minLat;
+  
+  const lng = pakistanBounds.minLng + (lngRange * (0.3 + (index * 0.13) % 0.4));
+  const lat = pakistanBounds.minLat + (latRange * (0.3 + (index * 0.17) % 0.4));
+
+  return [lng, lat];
 }
 
 // Mocked indicator parameters
