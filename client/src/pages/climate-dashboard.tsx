@@ -12,6 +12,7 @@ export default function ClimateDashboard() {
   const [selectedBoundary, setSelectedBoundary] = useState<"districts" | "tehsils">("districts");
   const [selectedProvince, setSelectedProvince] = useState<number>();
   const [selectedYear, setSelectedYear] = useState(2023);
+  const [selectedAreaClassification, setSelectedAreaClassification] = useState("all");
   const { toast } = useToast();
 
   const handleIndicatorSelect = (indicatorId: string) => {
@@ -38,6 +39,14 @@ export default function ClimateDashboard() {
     });
   };
 
+  const handleAreaClassificationChange = (classification: string) => {
+    setSelectedAreaClassification(classification);
+    toast({
+      title: "Area Classification Changed",
+      description: `Now showing ${classification === "all" ? "all areas" : classification} data`,
+    });
+  };
+
   const handleGenerateReport = () => {
     toast({
       title: "Report Generation",
@@ -60,6 +69,8 @@ export default function ClimateDashboard() {
           onBoundaryChange={handleBoundaryChange}
           selectedYear={selectedYear}
           onYearChange={handleYearChange}
+          selectedAreaClassification={selectedAreaClassification}
+          onAreaClassificationChange={handleAreaClassificationChange}
         />
         
         {/* Main Content */}
@@ -96,6 +107,7 @@ export default function ClimateDashboard() {
             selectedBoundary={selectedBoundary}
             selectedProvince={selectedProvince}
             selectedYear={selectedYear}
+            selectedAreaClassification={selectedAreaClassification}
           />
         </div>
       </div>

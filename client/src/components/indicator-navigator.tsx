@@ -12,6 +12,8 @@ interface IndicatorNavigatorProps {
   onBoundaryChange: (boundary: "districts" | "tehsils") => void;
   selectedYear: number;
   onYearChange: (year: number) => void;
+  selectedAreaClassification: string;
+  onAreaClassificationChange: (classification: string) => void;
 }
 
 export default function IndicatorNavigator({
@@ -21,6 +23,8 @@ export default function IndicatorNavigator({
   onBoundaryChange,
   selectedYear,
   onYearChange,
+  selectedAreaClassification,
+  onAreaClassificationChange,
 }: IndicatorNavigatorProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["vulnerability"]));
 
@@ -352,7 +356,10 @@ export default function IndicatorNavigator({
           </p>
           <div className="space-y-1">
             <div className="text-xs">
-              <span className="font-medium">State:</span> {selectedBoundary === "districts" ? "Districts" : "Tehsils"}
+              <span className="font-medium">Level:</span> {selectedBoundary === "districts" ? "Districts" : "Tehsils"}
+            </div>
+            <div className="text-xs">
+              <span className="font-medium">Area:</span> {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
             </div>
           </div>
           <div className="flex space-x-1 mt-2">
@@ -372,6 +379,39 @@ export default function IndicatorNavigator({
             >
               Tehsils
             </Button>
+          </div>
+          
+          {/* Area Classification Selector */}
+          <div className="mt-3">
+            <label className="text-xs font-medium text-gray-700 mb-1 block">
+              Area Classification
+            </label>
+            <div className="flex space-x-1">
+              <Button
+                size="sm"
+                variant={selectedAreaClassification === "all" ? "default" : "outline"}
+                onClick={() => onAreaClassificationChange("all")}
+                className="text-xs h-6 px-2 flex-1"
+              >
+                All
+              </Button>
+              <Button
+                size="sm"
+                variant={selectedAreaClassification === "rural" ? "default" : "outline"}
+                onClick={() => onAreaClassificationChange("rural")}
+                className="text-xs h-6 px-2 flex-1"
+              >
+                Rural
+              </Button>
+              <Button
+                size="sm"
+                variant={selectedAreaClassification === "urban" ? "default" : "outline"}
+                onClick={() => onAreaClassificationChange("urban")}
+                className="text-xs h-6 px-2 flex-1"
+              >
+                Urban
+              </Button>
+            </div>
           </div>
         </div>
       </div>

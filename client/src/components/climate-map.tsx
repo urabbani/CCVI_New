@@ -9,19 +9,21 @@ interface PakistanMapProps {
   selectedBoundary: "districts" | "tehsils";
   selectedProvince?: number;
   selectedYear: number;
+  selectedAreaClassification: string;
 }
 
 export default function PakistanMap({ 
   selectedIndicator, 
   selectedBoundary, 
   selectedProvince,
-  selectedYear
+  selectedYear,
+  selectedAreaClassification
 }: PakistanMapProps) {
   const [zoomLevel, setZoomLevel] = useState(1);
 
   // Fetch vulnerability data based on selected indicator
   const { data: vulnerabilityData, isLoading, error } = useQuery({
-    queryKey: [`ccvi-${selectedIndicator}`, selectedBoundary, selectedProvince, selectedYear],
+    queryKey: [`ccvi-${selectedIndicator}`, selectedBoundary, selectedProvince, selectedYear, selectedAreaClassification],
     queryFn: async () => {
       const endpoint = API_ENDPOINTS[selectedIndicator as keyof typeof API_ENDPOINTS];
       if (!endpoint) {
@@ -45,6 +47,11 @@ export default function PakistanMap({
       // Add year filter
       if (selectedYear) {
         params.append("year", selectedYear.toString());
+      }
+      
+      // Add area classification filter (only if not "all")
+      if (selectedAreaClassification && selectedAreaClassification !== "all") {
+        params.append("area_classification", selectedAreaClassification);
       }
       
       const url = `${endpoint}?${params.toString()}`;
@@ -80,6 +87,16 @@ export default function PakistanMap({
       dataArray = data.data;
     } else if (data.results && Array.isArray(data.results)) {
       dataArray = data.results;
+    } else if (data.tehsil_vulnerability) {
+      // Handle vulnerability endpoint structure
+      dataArray = Object.entries(data.tehsil_vulnerability).map(([tehsilName, tehsilData]: [string, any]) => ({
+        name: tehsilName,
+        district: data.district,
+        vulnerability_index: tehsilData["Vulnerability Index"],
+        exposure: tehsilData.Exposure,
+        sensitivity: tehsilData.Sensitivity,
+        adaptive_capacity: tehsilData["Adaptive Capacity"]
+      }));
     } else {
       console.warn('Unexpected data structure:', data);
       return [];
@@ -87,7 +104,7 @@ export default function PakistanMap({
     
     return dataArray.map((item: any, index: number) => ({
       id: item.id || item.district_id || item.tehsil_id || index,
-      name: item.name || item.district_name || item.tehsil_name || item.area_name || `Area ${index + 1}`,
+      name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
       value: item.vulnerability_index || item.adaptive_capacity || item.sensitivity_index || item.exposure || item.value || Math.random() * 0.8 + 0.1,
       province: item.province_name || item.province || 'Unknown',
       x: 200 + (index % 10) * 60,
@@ -223,7 +240,7 @@ export default function PakistanMap({
             <span>1.0</span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Showing {selectedBoundary} level data {vulnerabilityData ? `(${vulnerabilityData.length} areas)` : ''}
+            Showing {selectedBoundary} level data {vulnerabilityData ? `(${vulnerabilityData.length} areas)` : ''} - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
           </p>
         </div>
 
