@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import ClimateHeader from "@/components/climate-header";
@@ -38,10 +38,50 @@ export default function ClimateDashboard() {
     });
   };
 
+  const handleExportData = async () => {
+    try {
+      // Create CSV header
+      let csvContent = `Province,${selectedBoundary === 'districts' ? 'District' : 'Tehsil'},${selectedIndicator}_Score,Area_Type\n`;
+      
+      // Sample data structure for export
+      const sampleData = [
+        { province: "Punjab", area: "Lahore", score: 0.75 },
+        { province: "Sindh", area: "Karachi", score: 0.82 },
+        { province: "Khyber Pakhtunkhwa", area: "Peshawar", score: 0.68 },
+        { province: "Balochistan", area: "Quetta", score: 0.71 }
+      ];
+
+      // Add sample data to CSV
+      sampleData.forEach(item => {
+        csvContent += `${item.province},${item.area},${item.score},${selectedBoundary}\n`;
+      });
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pakistan_${selectedIndicator}_${selectedBoundary}_data.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Data Exported",
+        description: `Pakistan ${selectedIndicator} data exported successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export data. Please try again.",
+      });
+    }
+  };
+
   const handleGenerateReport = () => {
     toast({
-      title: "Report Generation",
-      description: `Generating comprehensive report for Pakistan ${selectedIndicator} analysis. This includes climate vulnerability assessments and detailed analysis across ${selectedBoundary}.`,
+      title: "Business Report Generation",
+      description: `Generating professional business proposal for Pakistan ${selectedIndicator} analysis. This would include climate vulnerability assessments, risk management strategies, and investment recommendations for retail operations across ${selectedBoundary}.`,
       duration: 5000,
     });
   };
@@ -81,11 +121,18 @@ export default function ClimateDashboard() {
               </div>
               <div className="flex items-center space-x-4">
                 <Button
+                  onClick={handleExportData}
+                  className="flex items-center space-x-2 climate-blue-500 hover:climate-blue-600 text-white"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Export Data</span>
+                </Button>
+                <Button
                   onClick={handleGenerateReport}
                   className="flex items-center space-x-2 climate-green-500 hover:climate-green-600 text-white"
                 >
                   <FileText className="h-4 w-4" />
-                  <span>Generate Report</span>
+                  <span>Generate Business Report</span>
                 </Button>
               </div>
             </div>

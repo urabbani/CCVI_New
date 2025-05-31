@@ -26,22 +26,14 @@ export default function IndicatorNavigator({
 
   // Fetch available years from IWMI API
   const { data: years, isLoading: yearsLoading } = useQuery({
-    queryKey: ['location-years'],
+    queryKey: ['/api/location/years'],
     queryFn: async () => {
-      const response = await fetch(API_ENDPOINTS.years, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
+      const response = await fetch(API_ENDPOINTS.years);
       if (!response.ok) {
-        throw new Error(`Failed to fetch years: ${response.status}`);
+        throw new Error('Failed to fetch years');
       }
       return response.json() as YearOption[];
     },
-    retry: 3,
-    retryDelay: 1000,
   });
 
   const toggleCategory = (categoryId: string) => {
