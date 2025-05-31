@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 20 14.3% 4.1%;
+  --muted: 60 4.8% 95.9%;
+  --muted-foreground: 25 5.3% 44.7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 14.3% 4.1%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 14.3% 4.1%;
+  --border: 20 5.9% 90%;
+  --input: 20 5.9% 90%;
+  --primary: 207 90% 54%;
+  --primary-foreground: 211 100% 99%;
+  --secondary: 60 4.8% 95.9%;
+  --secondary-foreground: 24 9.8% 10%;
+  --accent: 60 4.8% 95.9%;
+  --accent-foreground: 24 9.8% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 60 9.1% 97.8%;
+  --ring: 20 14.3% 4.1%;
+  --radius: 0.5rem;
+  
+  /* Climate-specific colors */
+  --climate-blue-50: 239 100% 99%;
+  --climate-blue-100: 219 100% 96%;
+  --climate-blue-500: 217 91% 60%;
+  --climate-blue-600: 221 83% 53%;
+  --climate-blue-700: 224 76% 48%;
+  --climate-blue-900: 224 64% 33%;
+  --climate-green-50: 151 81% 96%;
+  --climate-green-100: 149 80% 90%;
+  --climate-green-500: 160 84% 39%;
+  --climate-green-600: 158 64% 52%;
+  --climate-green-700: 158 64% 52%;
+  --climate-green-800: 158 64% 52%;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 207 90% 54%;
+  --primary-foreground: 211 100% 99%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 4.9% 83.9%;
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Climate-specific utility classes */
+.climate-blue-50 { background-color: hsl(var(--climate-blue-50)); }
+.climate-blue-100 { background-color: hsl(var(--climate-blue-100)); }
+.climate-blue-500 { background-color: hsl(var(--climate-blue-500)); }
+.climate-blue-600 { background-color: hsl(var(--climate-blue-600)); }
+.climate-blue-700 { background-color: hsl(var(--climate-blue-700)); }
+.climate-blue-900 { background-color: hsl(var(--climate-blue-900)); }
+
+.climate-green-50 { background-color: hsl(var(--climate-green-50)); }
+.climate-green-100 { background-color: hsl(var(--climate-green-100)); }
+.climate-green-500 { background-color: hsl(var(--climate-green-500)); }
+.climate-green-600 { background-color: hsl(var(--climate-green-600)); }
+
+.text-climate-blue-500 { color: hsl(var(--climate-blue-500)); }
+.text-climate-blue-600 { color: hsl(var(--climate-blue-600)); }
+.text-climate-blue-900 { color: hsl(var(--climate-blue-900)); }
+.text-climate-green-500 { color: hsl(var(--climate-green-500)); }
+
+.border-climate-blue-500 { border-color: hsl(var(--climate-blue-500)); }
+
+.hover\:climate-blue-600:hover { background-color: hsl(var(--climate-blue-600)); }
+.hover\:climate-green-600:hover { background-color: hsl(var(--climate-green-600)); }
+.hover\:climate-blue-100:hover { background-color: hsl(var(--climate-blue-100)); }
