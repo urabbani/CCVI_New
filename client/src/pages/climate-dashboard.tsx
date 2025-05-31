@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import ClimateHeader from "@/components/climate-header";
 import IndicatorNavigator from "@/components/indicator-navigator";
 import PakistanMap from "@/components/climate-map";
-import GeographicSelector from "@/components/geographic-selector";
 import { ccviIndicatorCategories } from "@/lib/climate-data";
 
 export default function ClimateDashboard() {
@@ -27,14 +26,6 @@ export default function ClimateDashboard() {
     toast({
       title: "Boundary Changed",
       description: `Now showing ${boundary} level data`,
-    });
-  };
-
-  const handleProvinceSelect = (provinceId: number) => {
-    setSelectedProvince(provinceId);
-    toast({
-      title: "Province Selected",
-      description: `Filtering map for selected province`,
     });
   };
 
@@ -142,11 +133,6 @@ export default function ClimateDashboard() {
             selectedProvince={selectedProvince}
           />
         </div>
-        
-        <GeographicSelector
-          selectedProvince={selectedProvince}
-          onProvinceSelect={handleProvinceSelect}
-        />
       </div>
     </div>
   );
