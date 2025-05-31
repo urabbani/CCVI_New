@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Leaflet map styles */
-@import 'leaflet/dist/leaflet.css';
+/* Map styles */
 
 :root {
   --background: 0 0% 100%;

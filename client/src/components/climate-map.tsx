@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Plus, Minus, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API_ENDPOINTS } from "@/lib/climate-data";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import Map, { Marker, Popup } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface PakistanMapProps {
   selectedIndicator: string;
@@ -15,61 +15,6 @@ interface PakistanMapProps {
   selectedAreaClassification: string;
 }
 
-// Component to handle map zoom controls
-function MapControls({ onZoomIn, onZoomOut, onResetView }: {
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onResetView: () => void;
-}) {
-  const map = useMap();
-
-  const handleZoomIn = () => {
-    map.zoomIn();
-    onZoomIn();
-  };
-
-  const handleZoomOut = () => {
-    map.zoomOut();
-    onZoomOut();
-  };
-
-  const handleResetView = () => {
-    map.setView([30.3753, 69.3451], 6); // Center of Pakistan
-    onResetView();
-  };
-
-  return (
-    <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 z-[1000]">
-      <div className="flex flex-col space-y-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleZoomIn}
-          className="p-2 hover:bg-gray-100"
-        >
-          <Plus className="h-4 w-4 text-gray-600" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleZoomOut}
-          className="p-2 hover:bg-gray-100"
-        >
-          <Minus className="h-4 w-4 text-gray-600" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleResetView}
-          className="p-2 hover:bg-gray-100"
-        >
-          <Home className="h-4 w-4 text-gray-600" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 export default function PakistanMap({ 
   selectedIndicator, 
   selectedBoundary, 
@@ -77,7 +22,12 @@ export default function PakistanMap({
   selectedYear,
   selectedAreaClassification
 }: PakistanMapProps) {
-  const [zoomLevel, setZoomLevel] = useState(6);
+  const [viewState, setViewState] = useState({
+    longitude: 69.3451,
+    latitude: 30.3753,
+    zoom: 6
+  });
+  const [selectedMarker, setSelectedMarker] = useState<any>(null);
 
   // Fetch vulnerability data based on selected indicator
   const { data: vulnerabilityData, isLoading, error } = useQuery({
@@ -128,10 +78,6 @@ export default function PakistanMap({
     retry: 2,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
-
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 1, 12));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 1, 5));
-  const handleResetView = () => setZoomLevel(6);
 
   // Create visualization data for Pakistan regions
   const createVisualizationData = (data: any) => {
@@ -192,8 +138,24 @@ export default function PakistanMap({
     return "#DC2626"; // Dark Red
   };
 
-  const getRadiusByValue = (value: number) => {
-    return Math.max(5, value * 25); // Scale radius between 5 and 25
+  const getSizeByValue = (value: number) => {
+    return Math.max(10, value * 30); // Scale size between 10 and 30
+  };
+
+  const handleZoomIn = () => {
+    setViewState(prev => ({ ...prev, zoom: Math.min(prev.zoom + 1, 12) }));
+  };
+
+  const handleZoomOut = () => {
+    setViewState(prev => ({ ...prev, zoom: Math.max(prev.zoom - 1, 3) }));
+  };
+
+  const handleResetView = () => {
+    setViewState({
+      longitude: 69.3451,
+      latitude: 30.3753,
+      zoom: 6
+    });
   };
 
   return (
@@ -216,52 +178,89 @@ export default function PakistanMap({
         </div>
       )}
 
-      {/* Leaflet Map */}
+      {/* Custom Controls */}
+      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 z-[1000]">
+        <div className="flex flex-col space-y-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleZoomIn}
+            className="p-2 hover:bg-gray-100"
+          >
+            <Plus className="h-4 w-4 text-gray-600" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleZoomOut}
+            className="p-2 hover:bg-gray-100"
+          >
+            <Minus className="h-4 w-4 text-gray-600" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetView}
+            className="p-2 hover:bg-gray-100"
+          >
+            <Home className="h-4 w-4 text-gray-600" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Mapbox Map */}
       <div className="w-full h-full">
-        <MapContainer
-          center={[30.3753, 69.3451]} // Center of Pakistan
-          zoom={6}
-          className="h-full w-full"
-          zoomControl={false}
+        <Map
+          {...viewState}
+          onMove={evt => setViewState(evt.viewState)}
+          style={{ width: '100%', height: '100%' }}
+          mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
+          mapboxAccessToken="pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw"
         >
-          {/* OpenStreetMap tiles */}
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          
-          {/* Data points */}
+          {/* Data points as markers */}
           {visualizationData.map((region) => (
-            <CircleMarker
+            <Marker
               key={region.id}
-              center={[region.latitude, region.longitude]}
-              radius={getRadiusByValue(region.value)}
-              fillColor={getColorByValue(region.value)}
-              color="#ffffff"
-              weight={2}
-              opacity={0.8}
-              fillOpacity={0.7}
+              longitude={region.longitude}
+              latitude={region.latitude}
+              onClick={(e) => {
+                e.originalEvent.stopPropagation();
+                setSelectedMarker(region);
+              }}
             >
-              <Popup>
-                <div className="p-2">
-                  <h3 className="font-semibold text-sm">{region.name}</h3>
-                  <p className="text-xs text-gray-600">District: {region.district}</p>
-                  <p className="text-xs text-gray-600">Province: {region.province}</p>
-                  <p className="text-xs font-medium mt-1">
-                    {selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1)}: {region.value.toFixed(3)}
-                  </p>
-                </div>
-              </Popup>
-            </CircleMarker>
+              <div
+                className="rounded-full border-2 border-white cursor-pointer hover:scale-110 transition-transform"
+                style={{
+                  backgroundColor: getColorByValue(region.value),
+                  width: getSizeByValue(region.value),
+                  height: getSizeByValue(region.value),
+                  opacity: 0.8
+                }}
+              />
+            </Marker>
           ))}
-          
-          {/* Custom Controls */}
-          <MapControls 
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onResetView={handleResetView}
-          />
-        </MapContainer>
+
+          {/* Popup for selected marker */}
+          {selectedMarker && (
+            <Popup
+              longitude={selectedMarker.longitude}
+              latitude={selectedMarker.latitude}
+              onClose={() => setSelectedMarker(null)}
+              closeButton={true}
+              closeOnClick={false}
+              className="z-[1001]"
+            >
+              <div className="p-2">
+                <h3 className="font-semibold text-sm">{selectedMarker.name}</h3>
+                <p className="text-xs text-gray-600">District: {selectedMarker.district}</p>
+                <p className="text-xs text-gray-600">Province: {selectedMarker.province}</p>
+                <p className="text-xs font-medium mt-1">
+                  {selectedIndicator.charAt(0).toUpperCase() + selectedIndicator.slice(1)}: {selectedMarker.value.toFixed(3)}
+                </p>
+              </div>
+            </Popup>
+          )}
+        </Map>
       </div>
 
       {/* Legend */}
