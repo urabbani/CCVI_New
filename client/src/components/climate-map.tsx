@@ -21,47 +21,56 @@ export default function PakistanMap({
 }: PakistanMapProps) {
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  // Fetch vulnerability data based on selected indicator
-  const { data: vulnerabilityData, isLoading, error } = useQuery({
-    queryKey: [`ccvi-${selectedIndicator}`, selectedBoundary, selectedProvince, selectedYear, selectedAreaClassification],
+  // Fetch CCVI data based on selected indicator
+  const { data: ccviData, isLoading, error } = useQuery({
+    queryKey: ['ccvi-data', selectedIndicator, selectedBoundary, selectedYear, selectedAreaClassification],
     queryFn: async () => {
       const endpoint = API_ENDPOINTS[selectedIndicator as keyof typeof API_ENDPOINTS];
       if (!endpoint) {
         throw new Error(`No endpoint found for indicator: ${selectedIndicator}`);
       }
-      
-      const params = new URLSearchParams();
-      
-      // Set area_type based on selectedBoundary
-      if (selectedBoundary === "districts") {
-        params.append("area_type", "district");
-      } else if (selectedBoundary === "tehsils") {
-        params.append("area_type", "tehsil");
+
+      const params = new URLSearchParams({
+        year: selectedYear.toString(),
+      });
+
+      // Add area type for CCVI endpoints
+      if (['vulnerability', 'adaptive-capacity', 'sensitivity', 'exposure'].includes(selectedIndicator)) {
+        params.append('area_type', selectedBoundary === "districts" ? "district" : "tehsil");
       }
-      
-      // Add province filter if selected
-      if (selectedProvince) {
-        params.append("province", selectedProvince.toString());
-      }
-      
-      // Add year filter
-      if (selectedYear) {
-        params.append("year", selectedYear.toString());
-      }
-      
-      // Add area classification filter (only if not "all")
-      if (selectedAreaClassification && selectedAreaClassification !== "all") {
+
+      // Add area classification filter
+      if (selectedAreaClassification !== "all") {
         params.append("area_classification", selectedAreaClassification);
       }
-      
-      const url = `${endpoint}?${params.toString()}`;
-      console.log(`Fetching CCVI data from: ${url}`);
-      
+
+      // Add specific parameters for different indicator types
+      const indicatorParams = INDICATOR_PARAMS[selectedIndicator as keyof typeof INDICATOR_PARAMS];
+      if (indicatorParams) {
+        Object.entries(indicatorParams).forEach(([key, value]) => {
+          params.append(key, value);
+        });
+      }
+
+      // Add geographical filters for non-CCVI endpoints
+      if (!['vulnerability', 'adaptive-capacity', 'sensitivity', 'exposure'].includes(selectedIndicator)) {
+        // For detailed indicators, we may need to specify province/district/tehsil
+        // This can be customized based on selected geographical area
+        if (selectedBoundary === "districts") {
+          // Add province filter if needed
+        } else {
+          // Add district filter if needed
+        }
+      }
+
+      const url = `${endpoint}?${params}`;
+      console.log(`Fetching ${selectedIndicator} data from: ${url}`);
+
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: Failed to fetch ${selectedIndicator} data`);
       }
-      
+
       const data = await response.json();
       console.log(`Received ${selectedIndicator} data:`, data);
       return data;
@@ -78,7 +87,7 @@ export default function PakistanMap({
   // Create visualization data for Pakistan regions
   const createVisualizationData = (data: any) => {
     if (!data) return [];
-    
+
     // Handle different response structures from IWMI API
     let dataArray = [];
     if (Array.isArray(data)) {
@@ -101,7 +110,7 @@ export default function PakistanMap({
       console.warn('Unexpected data structure:', data);
       return [];
     }
-    
+
     return dataArray.map((item: any, index: number) => ({
       id: item.id || item.district_id || item.tehsil_id || index,
       name: item.name || item.district_name || item.tehsil_name || item.area_name || item.tehsil || item.district || `Area ${index + 1}`,
@@ -114,7 +123,7 @@ export default function PakistanMap({
     }));
   };
 
-  const visualizationData = createVisualizationData(vulnerabilityData);
+  const visualizationData = createVisualizationData(ccviData);
 
   const getColorByValue = (value: number) => {
     if (value < 0.2) return "#f0f9ff";
@@ -124,25 +133,34 @@ export default function PakistanMap({
     return "#0284c7";
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <span className="text-lg text-gray-600">Loading {selectedIndicator} data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 mb-2">Failed to load climate data</div>
+          <div className="text-sm text-gray-600">{error.message}</div>
+          <div className="text-xs text-gray-500 mt-2">
+            Indicator: {selectedIndicator} | Year: {selectedYear} | Boundary: {selectedBoundary}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 relative">
-      {isLoading && (
-        <div className="absolute top-4 right-4 z-10 bg-white rounded-lg shadow-lg p-3">
-          <div className="flex items-center space-x-2">
-            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-            <span className="text-sm text-gray-600">Loading {selectedIndicator} data from IWMI API...</span>
-          </div>
-        </div>
-      )}
       
-      {error && (
-        <div className="absolute top-4 right-4 z-10 bg-red-50 border border-red-200 rounded-lg shadow-lg p-3">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <span className="text-sm text-red-600">Failed to load {selectedIndicator} data</span>
-          </div>
-        </div>
-      )}
 
       {/* Interactive Pakistan map visualization */}
       <div className="w-full h-full bg-gradient-to-br from-green-50 via-green-100 to-green-200 relative overflow-hidden">
@@ -157,7 +175,7 @@ export default function PakistanMap({
               stroke="#16a34a" 
               strokeWidth="2"
             />
-            
+
             {/* Dynamic data visualization */}
             <g className="vulnerability-regions">
               {visualizationData.map((region) => (
@@ -185,7 +203,7 @@ export default function PakistanMap({
                 </g>
               ))}
             </g>
-            
+
             {/* Province boundaries */}
             <g className="province-lines" stroke="#16a34a" strokeWidth="2" fill="none" opacity="0.6">
               <line x1="350" y1="120" x2="350" y2="420"/>
@@ -240,7 +258,7 @@ export default function PakistanMap({
             <span>1.0</span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Showing {selectedBoundary} level data {vulnerabilityData ? `(${vulnerabilityData.length} areas)` : ''} - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
+            Showing {selectedBoundary} level data {ccviData ? `(${ccviData.length} areas)` : ''} - {selectedAreaClassification === "all" ? "All Areas" : selectedAreaClassification.charAt(0).toUpperCase() + selectedAreaClassification.slice(1)}
           </p>
         </div>
 
@@ -248,10 +266,10 @@ export default function PakistanMap({
         <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-3 z-10">
           <div className="flex items-center space-x-2">
             <div className={`w-2 h-2 rounded-full ${
-              error ? 'bg-red-500' : vulnerabilityData ? 'bg-green-500' : 'bg-yellow-500'
+              error ? 'bg-red-500' : ccviData ? 'bg-green-500' : 'bg-yellow-500'
             }`}></div>
             <span className="text-xs text-gray-600">
-              {error ? 'API Error' : vulnerabilityData ? 'Connected to IWMI CCVI API' : 'Connecting to API...'}
+              {error ? 'API Error' : ccviData ? 'Connected to IWMI CCVI API' : 'Connecting to API...'}
             </span>
           </div>
         </div>
@@ -259,3 +277,37 @@ export default function PakistanMap({
     </div>
   );
 }
+
+// Mocked indicator parameters
+const INDICATOR_PARAMS: { [key: string]: { [key: string]: string } } = {
+  "vulnerability": {},
+  "adaptive-capacity": {},
+  "sensitivity": {},
+  "exposure": {},
+  "some-other-indicator": {
+    "param1": "value1",
+    "param2": "value2"
+  }
+};
+
+// Mocked indicator categories
+const ccviIndicatorCategories = [
+  { id: "vulnerability", name: "Vulnerability Index" },
+  { id: "adaptive-capacity", name: "Adaptive Capacity" },
+  { id: "sensitivity", name: "Sensitivity Index" },
+  { id: "exposure", name: "Exposure Index" },
+];
+
+// Helper function to format indicator data for display
+const formatIndicatorData = (data: any, selectedIndicator: string) => {
+  try {
+    if (!data) return "No data available.";
+
+    // Format JSON data with indentation
+    const formattedJson = JSON.stringify(data, null, 2);
+    return formattedJson;
+  } catch (e: any) {
+    console.error("Error formatting indicator data:", e);
+    return "Error displaying data.";
+  }
+};
