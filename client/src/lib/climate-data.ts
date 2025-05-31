@@ -84,7 +84,7 @@ export const API_ENDPOINTS = {
   tehsils: `${API_BASE_URL}/location/tehsils`,
   years: `${API_BASE_URL}/location/years`,
   vulnerability: `${API_BASE_URL}/ccvi/vulnerability`,
-  adaptiveCapacity: `${API_BASE_URL}/ccvi/adaptive-capacity`,
+  "adaptive-capacity": `${API_BASE_URL}/ccvi/adaptive-capacity`,
   sensitivity: `${API_BASE_URL}/ccvi/sensitivity-index`,
   exposure: `${API_BASE_URL}/ccvi/exposure`,
 };

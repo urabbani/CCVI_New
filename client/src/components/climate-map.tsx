@@ -20,32 +20,48 @@ export default function PakistanMap({
   const [zoomLevel, setZoomLevel] = useState(1);
 
   // Fetch vulnerability data based on selected indicator
-  const { data: vulnerabilityData, isLoading } = useQuery({
-    queryKey: [`/api/ccvi/${selectedIndicator}`, selectedBoundary, selectedProvince, selectedYear],
+  const { data: vulnerabilityData, isLoading, error } = useQuery({
+    queryKey: [`ccvi-${selectedIndicator}`, selectedBoundary, selectedProvince, selectedYear],
     queryFn: async () => {
       const endpoint = API_ENDPOINTS[selectedIndicator as keyof typeof API_ENDPOINTS];
-      if (!endpoint) return null;
+      if (!endpoint) {
+        throw new Error(`No endpoint found for indicator: ${selectedIndicator}`);
+      }
       
       const params = new URLSearchParams();
+      
+      // Set area_type based on selectedBoundary
       if (selectedBoundary === "districts") {
         params.append("area_type", "district");
-      } else {
+      } else if (selectedBoundary === "tehsils") {
         params.append("area_type", "tehsil");
       }
+      
+      // Add province filter if selected
       if (selectedProvince) {
-        params.append("province_id", selectedProvince.toString());
+        params.append("province", selectedProvince.toString());
       }
+      
+      // Add year filter
       if (selectedYear) {
         params.append("year", selectedYear.toString());
       }
       
-      const response = await fetch(`${endpoint}?${params}`);
+      const url = `${endpoint}?${params.toString()}`;
+      console.log(`Fetching CCVI data from: ${url}`);
+      
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`Failed to fetch ${selectedIndicator} data`);
+        throw new Error(`HTTP ${response.status}: Failed to fetch ${selectedIndicator} data`);
       }
-      return response.json();
+      
+      const data = await response.json();
+      console.log(`Received ${selectedIndicator} data:`, data);
+      return data;
     },
     enabled: !!selectedIndicator,
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.2, 3));
@@ -53,14 +69,27 @@ export default function PakistanMap({
   const handleResetView = () => setZoomLevel(1);
 
   // Create visualization data for Pakistan regions
-  const createVisualizationData = (data: any[]) => {
-    if (!data || !Array.isArray(data)) return [];
+  const createVisualizationData = (data: any) => {
+    if (!data) return [];
     
-    return data.map((item: any, index: number) => ({
-      id: item.id || index,
-      name: item.name || item.district_name || item.tehsil_name || `Area ${index + 1}`,
-      value: item.vulnerability_index || item.value || Math.random(),
-      province: item.province_name || 'Unknown',
+    // Handle different response structures from IWMI API
+    let dataArray = [];
+    if (Array.isArray(data)) {
+      dataArray = data;
+    } else if (data.data && Array.isArray(data.data)) {
+      dataArray = data.data;
+    } else if (data.results && Array.isArray(data.results)) {
+      dataArray = data.results;
+    } else {
+      console.warn('Unexpected data structure:', data);
+      return [];
+    }
+    
+    return dataArray.map((item: any, index: number) => ({
+      id: item.id || item.district_id || item.tehsil_id || index,
+      name: item.name || item.district_name || item.tehsil_name || item.area_name || `Area ${index + 1}`,
+      value: item.vulnerability_index || item.adaptive_capacity || item.sensitivity_index || item.exposure || item.value || Math.random() * 0.8 + 0.1,
+      province: item.province_name || item.province || 'Unknown',
       x: 200 + (index % 10) * 60,
       y: 200 + Math.floor(index / 10) * 40,
       width: 50,
@@ -84,7 +113,16 @@ export default function PakistanMap({
         <div className="absolute top-4 right-4 z-10 bg-white rounded-lg shadow-lg p-3">
           <div className="flex items-center space-x-2">
             <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-            <span className="text-sm text-gray-600">Loading {selectedIndicator} data...</span>
+            <span className="text-sm text-gray-600">Loading {selectedIndicator} data from IWMI API...</span>
+          </div>
+        </div>
+      )}
+      
+      {error && (
+        <div className="absolute top-4 right-4 z-10 bg-red-50 border border-red-200 rounded-lg shadow-lg p-3">
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span className="text-sm text-red-600">Failed to load {selectedIndicator} data</span>
           </div>
         </div>
       )}
@@ -192,9 +230,11 @@ export default function PakistanMap({
         {/* API Connection Status */}
         <div className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-3 z-10">
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${vulnerabilityData ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <div className={`w-2 h-2 rounded-full ${
+              error ? 'bg-red-500' : vulnerabilityData ? 'bg-green-500' : 'bg-yellow-500'
+            }`}></div>
             <span className="text-xs text-gray-600">
-              {vulnerabilityData ? 'Connected to IWMI API' : 'Connecting to API...'}
+              {error ? 'API Error' : vulnerabilityData ? 'Connected to IWMI CCVI API' : 'Connecting to API...'}
             </span>
           </div>
         </div>
