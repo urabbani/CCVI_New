@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Download } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import ClimateHeader from "@/components/climate-header";
@@ -60,7 +60,7 @@ export default function ClimateDashboard() {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <ClimateHeader />
-
+      
       <div className="flex flex-1">
         <IndicatorNavigator
           selectedIndicator={selectedIndicator}
@@ -72,7 +72,7 @@ export default function ClimateDashboard() {
           selectedAreaClassification={selectedAreaClassification}
           onAreaClassificationChange={handleAreaClassificationChange}
         />
-
+        
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Content Header */}
