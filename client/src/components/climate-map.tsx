@@ -19,30 +19,33 @@ export default function PakistanMap({
 }: PakistanMapProps) {
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  // Fetch vulnerability data from IWMI API
-  const { data: vulnerabilityData, isLoading: dataLoading } = useQuery({
-    queryKey: ['vulnerability-data', selectedIndicator, selectedBoundary],
+  // Fetch vulnerability data based on selected indicator
+  const { data: vulnerabilityData, isLoading } = useQuery({
+    queryKey: [`/api/ccvi/${selectedIndicator}`, selectedBoundary, selectedProvince, selectedYear],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        indicator: selectedIndicator,
-        boundary: selectedBoundary,
-        ...(selectedProvince && { province_id: selectedProvince.toString() })
-      });
-
-      const response = await fetch(`${API_ENDPOINTS.vulnerabilityData}?${params}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
+      const endpoint = API_ENDPOINTS[selectedIndicator as keyof typeof API_ENDPOINTS];
+      if (!endpoint) return null;
+      
+      const params = new URLSearchParams();
+      if (selectedBoundary === "districts") {
+        params.append("area_type", "district");
+      } else {
+        params.append("area_type", "tehsil");
+      }
+      if (selectedProvince) {
+        params.append("province_id", selectedProvince.toString());
+      }
+      if (selectedYear) {
+        params.append("year", selectedYear.toString());
+      }
+      
+      const response = await fetch(`${endpoint}?${params}`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch vulnerability data: ${response.status}`);
+        throw new Error(`Failed to fetch ${selectedIndicator} data`);
       }
       return response.json();
     },
-    retry: 3,
-    retryDelay: 1000,
+    enabled: !!selectedIndicator,
   });
 
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.2, 3));
@@ -52,7 +55,7 @@ export default function PakistanMap({
   // Create visualization data for Pakistan regions
   const createVisualizationData = (data: any[]) => {
     if (!data || !Array.isArray(data)) return [];
-
+    
     return data.map((item: any, index: number) => ({
       id: item.id || index,
       name: item.name || item.district_name || item.tehsil_name || `Area ${index + 1}`,
@@ -99,7 +102,7 @@ export default function PakistanMap({
               stroke="#16a34a" 
               strokeWidth="2"
             />
-
+            
             {/* Dynamic data visualization */}
             <g className="vulnerability-regions">
               {visualizationData.map((region) => (
@@ -127,7 +130,7 @@ export default function PakistanMap({
                 </g>
               ))}
             </g>
-
+            
             {/* Province boundaries */}
             <g className="province-lines" stroke="#16a34a" strokeWidth="2" fill="none" opacity="0.6">
               <line x1="350" y1="120" x2="350" y2="420"/>
