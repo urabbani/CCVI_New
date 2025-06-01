@@ -9,17 +9,24 @@ import { ccviIndicatorCategories } from "@/lib/climate-data";
 
 export default function ClimateDashboard() {
   const [selectedIndicator, setSelectedIndicator] = useState("vulnerability");
-  const [selectedBoundary, setSelectedBoundary] = useState<"districts" | "tehsils">("districts");
+  const [selectedBoundary, setSelectedBoundary] = useState<
+    "districts" | "tehsils"
+  >("tehsils");
   const [selectedProvince, setSelectedProvince] = useState<number>();
   const [selectedYear, setSelectedYear] = useState(2023);
-  const [selectedAreaClassification, setSelectedAreaClassification] = useState("all");
+  const [selectedAreaClassification, setSelectedAreaClassification] =
+    useState("all");
   const { toast } = useToast();
 
   const handleIndicatorSelect = (indicatorId: string) => {
+    console.log(indicatorId);
+
     setSelectedIndicator(indicatorId);
     toast({
       title: "Indicator Selected",
-      description: `Viewing ${ccviIndicatorCategories.find(cat => cat.id === indicatorId)?.name} data`,
+      description: `Viewing ${
+        ccviIndicatorCategories.find((cat) => cat.id === indicatorId)?.name
+      } data`,
     });
   };
 
@@ -43,7 +50,9 @@ export default function ClimateDashboard() {
     setSelectedAreaClassification(classification);
     toast({
       title: "Area Classification Changed",
-      description: `Now showing ${classification === "all" ? "all areas" : classification} data`,
+      description: `Now showing ${
+        classification === "all" ? "all areas" : classification
+      } data`,
     });
   };
 
@@ -55,12 +64,14 @@ export default function ClimateDashboard() {
     });
   };
 
-  const currentIndicator = ccviIndicatorCategories.find(cat => cat.id === selectedIndicator);
+  const currentIndicator = ccviIndicatorCategories.find(
+    (cat) => cat.id === selectedIndicator
+  );
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <ClimateHeader />
-      
+
       <div className="flex flex-1">
         <IndicatorNavigator
           selectedIndicator={selectedIndicator}
@@ -72,7 +83,7 @@ export default function ClimateDashboard() {
           selectedAreaClassification={selectedAreaClassification}
           onAreaClassificationChange={handleAreaClassificationChange}
         />
-        
+
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Content Header */}
@@ -80,11 +91,12 @@ export default function ClimateDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {currentIndicator?.name || "Climate Change Vulnerability Index"}
+                  {currentIndicator?.name ||
+                    "Climate Change Vulnerability Index"}
                 </h2>
                 <p className="text-sm text-gray-600">
-                  {currentIndicator?.description || 
-                   "Comprehensive climate vulnerability assessment for Pakistan using IWMI CCVI data."}
+                  {currentIndicator?.description ||
+                    "Comprehensive climate vulnerability assessment for Pakistan using IWMI CCVI data."}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Displaying {selectedBoundary} level data for business analysis
@@ -102,7 +114,7 @@ export default function ClimateDashboard() {
             </div>
           </div>
 
-          <PakistanMap 
+          <PakistanMap
             selectedIndicator={selectedIndicator}
             selectedBoundary={selectedBoundary}
             selectedProvince={selectedProvince}
